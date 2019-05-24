@@ -36,6 +36,6 @@
 
 <!-- Kalman filter -->
 
-    <node name="extendedkf" pkg="kalman_filter" type="extendedkf" />
+    <node name="extendedkf" pkg="kalman_filter" type="ExtendedKF" />
 
 </launch>

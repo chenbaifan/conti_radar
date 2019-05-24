@@ -16,8 +16,8 @@ const int RADARCFG_STOREINNVM_VALID = 1; // Allow storing to non-volatile memory
 
 const int RADARCFG_MAXDISTANCE = 250; // Maximum distance of far scan. Standard range: 96-260
 const int RADARCFG_SENSORID = 0; // Sensor Id 0-7
-const int RADARCFG_OUTPUTTYPE = 2; // Output type 0 none - 1 objects - 2 clusters
-const int RADARCFG_RADARPOWER = 3; // Transmitted radar power 0 Standard - 3 -9dB Tx gain
+const int RADARCFG_OUTPUTTYPE = 1; // Output type 0 none - 1 objects - 2 clusters
+const int RADARCFG_RADARPOWER = 0; // Transmitted radar power 0 Standard - 3 -9dB Tx gain
 
 const int RADARCFG_CTRLRELAY_VALID = 0; // Allow change of relay control output
 const int RADARCFG_CTRLRELAY = 0; // Relay control message is sent if true and collision detection is activated

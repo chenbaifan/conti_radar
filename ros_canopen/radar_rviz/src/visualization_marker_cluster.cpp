@@ -36,11 +36,14 @@ namespace markers
 
          	sphere.type = visualization_msgs::Marker::SPHERE;
 
-         	sphere.scale.x = 0.1;
-            sphere.scale.y = 0.1;
-            sphere.scale.z = 0.1;
+         	//sphere.scale.x = 0.1;
+            //sphere.scale.y = 0.1;
+            //sphere.scale.z = 0.1;
 
-            sphere.color.r = 1.0f;
+            sphere.scale.x = 0.3;
+            sphere.scale.y = 0.3;
+            sphere.scale.z = 0.3;
+            sphere.color.g = 1.0f;
             sphere.color.a = 1.0;
 
             sphere.pose.orientation.w = 1.0;
