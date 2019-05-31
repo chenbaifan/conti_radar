@@ -1,3 +1,0 @@
-uint8 nof_objects
-uint32 meas_counter
-uint8 interface_version
