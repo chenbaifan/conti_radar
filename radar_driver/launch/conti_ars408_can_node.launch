@@ -1,0 +1,16 @@
+<launch>
+	<arg name="can_hardware_id" default="33691"/>
+	<arg name="can_circuit_id" default="0"/>
+	<arg name="can_bit_rate" default="500000"/>
+	<arg name="vehicle_model" default="mggs"/>
+	<arg name="node_name" default="mggs_can_node"/>
+	<arg name="vehicle_licence_plate" default="$(optenv LICENCE_PLATE 7HJL993)"/> <!-- frame_id -->
+	<node pkg="radar_driver" type="vehicle_controller" name="$(arg node_name)" output="screen">
+		<param name="can_hardware_id" value="$(arg can_hardware_id)" />
+		<param name="can_circuit_id" value="$(arg can_circuit_id)" />
+		<param name="can_bit_rate" value="$(arg can_bit_rate)" />
+		<param name="vehicle_model" value="$(arg vehicle_model)" />
+		<param name="vehicle_licence_plate" value="$(arg vehicle_licence_plate)" />
+	</node>
+</launch>
+
