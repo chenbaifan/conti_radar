@@ -1,5 +1,5 @@
-#ifndef RADAR_CONTROLLER.H
-#define RADAR_CONTROLLER.H
+#ifndef RADAR_CONTROLLER_H
+#define RADAR_CONTROLLER_H
 
 #include<thread>
 #include<mutex>
@@ -9,7 +9,7 @@
 #include<macro.h>
 #include<can_interface/kvaser_interface.h>
 
-namespace radar{
+namespace radar_driver{
 
 class RadarController{
     public:
@@ -43,7 +43,7 @@ class RadarController{
         CANCardParameter param_;
         
         //CAN reader and writers, init in derived class
-        boost::shared_ptr<radar::KvaserInterface> can_reader_, can_writer_;
+        boost::shared_ptr<radar_driver::KvaserInterface> can_reader_, can_writer_;
         
         //CAN recieve thread pointer
         std::unique_ptr<std::thread> can_recv_thread_ = nullptr;
@@ -62,7 +62,7 @@ class RadarController{
         * @brief Close the can_reader_, can_writer_ and can_recv_thread_
         */
     void Stop(); 
-}
+};
 }
 
 

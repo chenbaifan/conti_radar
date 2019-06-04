@@ -10,7 +10,7 @@
 #include <unistd.h>
 
 /**
- * @namespace radar_driver
+ * @namespace radar
  * @brief radar_driver
  */
 
@@ -130,6 +130,6 @@ class CanInterface {
 // Converts error messages to human-readable strings
 std::string return_status_desc(const return_statuses& ret);
 
-} // namespace canbus
+} // namespace radar
 
 #endif //CAN_INTERFACE_H

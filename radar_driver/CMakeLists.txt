@@ -31,11 +31,19 @@ endif()
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
-  std_msgs
+  pb_msgs
   common
 )
 
 
+###################################
+## catkin specific configuration ##
+###################################
+## The catkin_package macro generates cmake config files for your package
+## Declare things to be passed to dependent projects
+## INCLUDE_DIRS: uncomment this if your package contains header files
+## LIBRARIES: libraries you create in this project that dependent projects also need
+## CATKIN_DEPENDS: catkin_packages dependent projects also need
 if (NOT NVIDIA_DRIVE)
   catkin_package(
     CATKIN_DEPENDS roscpp
@@ -50,21 +58,6 @@ else()
   )
 endif()
 
-###################################
-## catkin specific configuration ##
-###################################
-## The catkin_package macro generates cmake config files for your package
-## Declare things to be passed to dependent projects
-## INCLUDE_DIRS: uncomment this if your package contains header files
-## LIBRARIES: libraries you create in this project that dependent projects also need
-## CATKIN_DEPENDS: catkin_packages dependent projects also need
-## DEPENDS: system dependencies of this project that dependent projects also need
-catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES conti_ars408
-#  CATKIN_DEPENDS roscpp rospy std_msgs
-#  DEPENDS system_lib
-)
 
 ###########
 ## Build ##
@@ -106,21 +99,17 @@ endif()
 
 
 ########################
-## Vehicle Controller ##
+## Radar Controller ##
 ########################
 
 add_executable(radar_controller
-  src/vehicle/can_node.cc
-  src/vehicle/radar_controller.cc
-  src/vehicle/gem/gem_controller.cc
-  src/vehicle/gem/motivo_rexus.cc
-  src/vehicle/mggs/mggs_controller.cc
-  src/vehicle/mggs/adas_mggs.cc
-  src/vehicle/maxus/maxus_controller.cc
-  src/vehicle/maxus/adas_maxus.cc
-  src/vehicle/pacifica/pacifica_controller.cc
-  src/vehicle/pacifica/new_eagle_pacifica.cc
+  src/radar/radar_node.cc
+  src/radar/radar_controller.cc
+  src/radar/conti_ars408/conti_ars408_controller.cc
+  src/radar/conti_ars408/conti_ars408.c
 )
+
+
 if (NOT NVIDIA_DRIVE)
   target_link_libraries(radar_controller kvaser_interface ${catkin_LIBRARIES} ${PROTOBUF_LIBRARIES})
 else()

@@ -2,9 +2,8 @@
 // install linuxcan
 
 
-namespace saic {
-namespace drivers {
-namespace canbus {
+
+namespace radar_driver {
 
     //Default constructor.
 KvaserInterface::KvaserInterface() :
@@ -239,6 +238,4 @@ return_statuses KvaserInterface::write(const CanFrame* const frame)
   return ret_val;
 }
 
-} // namespace canbus
-} // namespace drivers
-} // namespace saic
+} // namespace radar_driver

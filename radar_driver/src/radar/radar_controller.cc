@@ -1,6 +1,6 @@
 #include "radar_controller.h"
 
-namespace radar {
+namespace radar_driver {
   RadarController::~RadarController(){
         ros::waitForShutdown();
         Stop();

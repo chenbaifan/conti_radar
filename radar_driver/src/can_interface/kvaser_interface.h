@@ -1,21 +1,20 @@
 #ifndef KVASER_INTERFACE_H
 #define KVASER_INTERFACE_H
 
-#include "canbus/can_interface.h"
+#include "radar_driver/can_interface.h"
 #include <canlib.h>
 /**
- * @namespace saic::drivers::canbus
- * @brief saic::drivers::canbus
+ * @namespace radar
+ * @brief radar
  */
-namespace saic {
-namespace drivers {
-namespace canbus {
+
+namespace radar_driver {
 
 /**
  * @class KvaserInterface
  * @brief The class which defines the CAN client to send and receive message.
  */
-class KvaserInterface:public CanInterface {
+class KvaserInterface:public CanInterface{
     public:
     /**
     * @brief Constructor
@@ -65,8 +64,7 @@ class KvaserInterface:public CanInterface {
     bool echo_on_;
 
 };//KvaserInterface
-} // namespace canbus
-} // namespace drivers
-} // namespace saic
+} // namespace radar
+
 
 #endif //KVASER_INTERFACE_H
