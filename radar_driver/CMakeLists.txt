@@ -33,6 +33,39 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   pb_msgs
   common
+  message_generation
+)
+
+################################################
+## Declare ROS messages, services and actions ##
+################################################
+## Generate messages in the 'msg' folder
+add_message_files(
+  FILES
+  # Radar config and state
+  Conti_radar_state.msg      
+  Conti_radar_config.msg     
+  Conti_filter_config.msg     
+  # For objs output mode.msg 
+  Conti_obj_status.msg        
+  Conti_obj_general.msg     
+  Conti_obj_quality.msg     
+  Conti_obj_extended.msg    
+  Conti_obj_warning.msg     
+  # For cluster output mode 
+  Conti_cluster_status.msg  
+  Conti_cluster_general.msg 
+  Conti_cluster_quality.msg 
+  # Motion Input
+  Conti_motion_rx.msg    
+  # RadarRaw
+  ContiRaw.msg 
+)
+
+# Generate added messages and services with any dependencies listed here
+generate_messages(
+  DEPENDENCIES
+  std_msgs
 )
 
 
@@ -46,13 +79,13 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 if (NOT NVIDIA_DRIVE)
   catkin_package(
-    CATKIN_DEPENDS roscpp
+    CATKIN_DEPENDS roscpp message_runtime
     INCLUDE_DIRS include
     LIBRARIES kvaser_interface
   )
 else()
   catkin_package(
-    CATKIN_DEPENDS roscpp
+    CATKIN_DEPENDS roscpp message_runtime
     INCLUDE_DIRS include
     LIBRARIES mttcan_interface
   )
@@ -97,7 +130,6 @@ else()
   )  
 endif()
 
-
 ########################
 ## Radar Controller ##
 ########################
@@ -109,15 +141,12 @@ add_executable(radar_controller
   src/radar/conti_ars408/conti_ars408.c
 )
 
-
 if (NOT NVIDIA_DRIVE)
   target_link_libraries(radar_controller kvaser_interface ${catkin_LIBRARIES} ${PROTOBUF_LIBRARIES})
 else()
   target_link_libraries(radar_controller mttcan_interface ${catkin_LIBRARIES} ${PROTOBUF_LIBRARIES})
 endif()
 add_dependencies(radar_controller ${catkin_EXPORTED_TARGETS})
-
-
 
 #############
 ## Install ##
