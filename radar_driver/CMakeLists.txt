@@ -31,7 +31,6 @@ endif()
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
-  common
   std_msgs
   message_generation
 )
