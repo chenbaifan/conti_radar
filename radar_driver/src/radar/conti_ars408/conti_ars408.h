@@ -34,6 +34,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <iostream>
 
 #ifndef EINVAL
 #    define EINVAL 22

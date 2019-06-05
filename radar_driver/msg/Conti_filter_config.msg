@@ -1,7 +1,7 @@
 bool        Valid
 bool        Active
 uint8       Index
-bool        Type
+bool        Output_Type
 
 uint16      Min_NofObj
 float32     Min_Distance

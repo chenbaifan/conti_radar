@@ -11,7 +11,13 @@ int main(int argc, char** argv) {
 
 // Wait for time to be valid
   while (ros::Time::now().nsec == 0);
-  // start the vehicle_controller   
+  // start the vehicle_controller
+  radar_driver::RadarController* radar_controller = 
+  radar_driver::RadarControllerFactory::create_controller(nh,private_nh);
+  if (radar_controller == nullptr){
+    ROS_BREAK();
+  }
+  radar_controller->init(nh);
   //saic::drivers::canbus::VehicleController* vehicle_controller =
   //saic::drivers::canbus::VehicleControllerFactory::create_controller(nh,private_nh);
   //if (vehicle_controller == nullptr) {

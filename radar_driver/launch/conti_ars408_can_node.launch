@@ -4,7 +4,7 @@
 	<arg name="can_bit_rate" default="500000"/>
 	<arg name="radar_model" default="conti_ars408"/>
 	<arg name="node_name" default="conti_ars408_can_node"/>
-	<node pkg="radar_driver" type=radar_controller" name="$(arg node_name)" output="screen">
+	<node pkg="radar_driver" type="radar_controller" name="$(arg node_name)" output="screen">
 		<param name="can_hardware_id" value="$(arg can_hardware_id)" />
 		<param name="can_circuit_id" value="$(arg can_circuit_id)" />
 		<param name="can_bit_rate" value="$(arg can_bit_rate)" />

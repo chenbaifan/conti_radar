@@ -3,7 +3,15 @@
 
 #include "radar/radar_controller.h"
 #include "conti_ars408.h"
-#include <pb_msgs/candata_pb.pb.h>
+#include "std_msgs/UInt8.h"
+//#include <pb_msgs/candata_pb.pb.h>
+/*
+#include <radar_driver/Conti_cluster_general.h>
+#include <radar_driver/Conti_cluster_quality.h>
+#include <radar_driver/Conti_cluster_status.h>
+#include <radar_driver/Conti_cluster_general.h>
+*/
+#include <radar_driver/ContiRaw.h>
 /**
  * @namespace saic::drivers::canbus
  * @brief saic::drivers::canbus
@@ -44,29 +52,29 @@ private:
     /**
     * @brief Called to encode ros command msgto  GEM vehicle can frame data 
     */
-    void EncodeMsgCallback(const candata_msgs_pb::CANData& msg);
+    //void EncodeMsgCallback(const candata_msgs_pb::CANData& msg);
 
-    void EncodeMsgAuxCallback(const candata_msgs_pb::Auxiliary& msg);
+    //void EncodeMsgAuxCallback(const candata_msgs_pb::Auxiliary& msg);
 
     //used for encoding in frame id 16
-    int motion_control_counter_ = 0;
+    //int motion_control_counter_ = 0;
 
     //Ros can msg
-    candata_msgs_pb::CANData can_msg_;
-    bool fbk_frame32_updated_;
-    bool fbk_frame35_updated_;
+    radar_driver::ContiRaw can_msg_;
+    bool radar_60A_update_;
+    bool radar_60D_update_;
 
+
+    conti_ars408_obj_0_status_t obj_0_status_; 
+    conti_ars408_obj_1_general_t obj_1_general_;
+    conti_ars408_obj_2_quality_t obj_2_quality_;
+    conti_ars408_obj_3_extended_t obj_3_extended_;    
+    
+    //Ros can msg
     // Can decode&encode msg define 
-    //can feedback msg1
-    motivo_rexus_llc_motion_feedback1_t motion_fbk1_;
-
-    //can feedback msg1
-    motivo_rexus_llc_motion_feedback2_t motion_fbk2_;
-
-    conti_ars408_obj_0_status_t obj_status_;
 
 
-    DISALLOW_COPY_AND_ASSIGN(ContiController);
+    //DISALLOW_COPY_AND_ASSIGN(ContiController);
 };
 
 } // namespace radar_driver

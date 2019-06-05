@@ -31,8 +31,8 @@ endif()
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
-  pb_msgs
   common
+  std_msgs
   message_generation
 )
 
@@ -79,13 +79,13 @@ generate_messages(
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 if (NOT NVIDIA_DRIVE)
   catkin_package(
-    CATKIN_DEPENDS roscpp message_runtime
+    CATKIN_DEPENDS roscpp message_runtime std_msgs message_generation
     INCLUDE_DIRS include
     LIBRARIES kvaser_interface
   )
 else()
   catkin_package(
-    CATKIN_DEPENDS roscpp message_runtime
+    CATKIN_DEPENDS roscpp message_runtime std_msgs message_generation
     INCLUDE_DIRS include
     LIBRARIES mttcan_interface
   )
@@ -138,7 +138,7 @@ add_executable(radar_controller
   src/radar/radar_node.cc
   src/radar/radar_controller.cc
   src/radar/conti_ars408/conti_ars408_controller.cc
-  src/radar/conti_ars408/conti_ars408.c
+  src/radar/conti_ars408/conti_ars408.cc
 )
 
 if (NOT NVIDIA_DRIVE)

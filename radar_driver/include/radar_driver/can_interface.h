@@ -24,8 +24,7 @@ typedef struct CANCardParameter{
     int bit_rate = 500000;
     int hardware_id = 0;
     int circuit_id = 0;
-    std::string vehicle_model;
-    std::string vehicle_licence_plate;
+    std::string radar_model;
     bool echo_on = true;
 }CANCardParameter;
 

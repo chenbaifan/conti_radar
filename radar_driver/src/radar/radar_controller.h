@@ -7,7 +7,9 @@
 
 #include<ros/ros.h>
 #include<macro.h>
-#include<can_interface/kvaser_interface.h>
+
+//#include<can_interface/kvaser_interface.h>
+#include "radar_driver/can_interface.h"
 
 namespace radar_driver{
 
@@ -43,7 +45,7 @@ class RadarController{
         CANCardParameter param_;
         
         //CAN reader and writers, init in derived class
-        boost::shared_ptr<radar_driver::KvaserInterface> can_reader_, can_writer_;
+        boost::shared_ptr<radar_driver::CanInterface> can_reader_, can_writer_;
         
         //CAN recieve thread pointer
         std::unique_ptr<std::thread> can_recv_thread_ = nullptr;

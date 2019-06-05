@@ -10,7 +10,7 @@ uint8       SensorID
 uint8       SortIndex
 uint8       RadarPowerCfg
 bool        CtrlRelayCfg
-uint8   `   OutputTypeCfg
+uint8       OutputTypeCfg
 bool        SendQualityCfg
 bool        SendExtInfoCfg
 uint8       MotionRxState
