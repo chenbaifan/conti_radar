@@ -3763,7 +3763,6 @@ int conti_ars408_obj_1_general_unpack(
     dst_p->obj_id |= unpack_right_shift_u8(src_p[0], 0u, 0xffu);
     dst_p->obj_dist_long |= unpack_left_shift_u16(src_p[1], 5u, 0xffu);
     dst_p->obj_dist_long |= unpack_right_shift_u16(src_p[2], 3u, 0xf8u);
-    std::cout << "raw information of dist long : " << dst_p->obj_dist_long << std::endl;
     dst_p->obj_dist_lat |= unpack_left_shift_u16(src_p[2], 8u, 0x07u);
     dst_p->obj_dist_lat |= unpack_right_shift_u16(src_p[3], 0u, 0xffu);
     dst_p->obj_vrel_long |= unpack_left_shift_u16(src_p[4], 2u, 0xffu);

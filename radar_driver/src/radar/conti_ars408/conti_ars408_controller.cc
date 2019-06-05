@@ -41,12 +41,9 @@ void ContiController::RecvThreadFunc() {
         CanFrame frame;
         if ((ret = can_reader_->read(&frame)) == OK) {
             DecodeMsgPublish(frame);
-            //std::cout << "Raw frame information: " << frame.data << std::endl;
-            //std::cout << std::to_string(frame.data[0]) << std::endl; 
         }
         if (ret != NO_MESSAGES_RECEIVED)
             continue;
-        //std::this_thread::sleep_for(loop_pause);
     }
 }
 
@@ -57,18 +54,20 @@ void ContiController::DecodeMsgPublish(const CanFrame &frame) {
         case 1546:
             conti_ars408_obj_0_status_unpack(&obj_0_status_, frame.data, sizeof(frame.data));    
             if (conti_ars408_obj_0_status_obj_nof_objects_is_in_range(obj_0_status_.obj_nof_objects)){
-                can_msg_.objs_status.NofObjects = obj_0_status_.obj_nof_objects;
+                can_msg_.objs_status.NofObjects = 
+                conti_ars408_obj_0_status_obj_nof_objects_decode(obj_0_status_.obj_nof_objects);
             }
             if (conti_ars408_obj_0_status_obj_meas_counter_is_in_range(obj_0_status_.obj_meas_counter)){
-                can_msg_.objs_status.MeasCounter = obj_0_status_.obj_meas_counter;
+                can_msg_.objs_status.MeasCounter = 
+                conti_ars408_obj_0_status_obj_meas_counter_decode(obj_0_status_.obj_meas_counter);
             }
             if (conti_ars408_obj_0_status_obj_interface_version_is_in_range(obj_0_status_.obj_interface_version)){
-                can_msg_.objs_status.InterfaceVersion = obj_0_status_.obj_interface_version;
+                can_msg_.objs_status.InterfaceVersion = 
+                conti_ars408_obj_0_status_obj_interface_version_decode(obj_0_status_.obj_interface_version);
             }
             can_msg_.objs_general.resize(0);
             can_msg_.objs_quality.resize(0);
             can_msg_.objs_extended.resize(0);
-            //std::cout << "Number of targets: "<<std::to_string(obj_0_status_.obj_nof_objects) << std::endl;
             radar_60A_update_ = true;
             break;
 
@@ -76,35 +75,36 @@ void ContiController::DecodeMsgPublish(const CanFrame &frame) {
         case 1547:
             {
                 conti_ars408_obj_1_general_unpack(&obj_1_general_, frame.data, sizeof(frame.data));    
-                //std::cout << "Object general information, obj_ID: "<< std::to_string(obj_1_general_.obj_id) << std::endl;
                 radar_driver::Conti_obj_general obj_temp;
                 if (conti_ars408_obj_1_general_obj_id_is_in_range(obj_1_general_.obj_id)){
-                    //std::cout << "Object general information, obj_ID: "<< std::to_string(obj_1_general_.obj_id) << std::endl;
-                    obj_temp.ID = obj_1_general_.obj_id;
-                    std::cout << "Object general information, obj_ID: "<< std::to_string(obj_temp.ID) << std::endl;
+                    obj_temp.ID = conti_ars408_obj_1_general_obj_id_decode(obj_1_general_.obj_id);
                 } 
                 if (conti_ars408_obj_1_general_obj_dist_long_is_in_range(obj_1_general_.obj_dist_long)){
-                    obj_temp.DistLong = obj_1_general_.obj_dist_long;
+                    obj_temp.DistLong = 
+                    conti_ars408_obj_1_general_obj_dist_long_decode (obj_1_general_.obj_dist_long);
                 }
                 if (conti_ars408_obj_1_general_obj_dist_lat_is_in_range(obj_1_general_.obj_dist_lat)){
-                    obj_temp.DistLat = obj_1_general_.obj_dist_lat;
+                    obj_temp.DistLat = 
+                    conti_ars408_obj_1_general_obj_dist_lat_decode(obj_1_general_.obj_dist_lat);
                 }
                 if (conti_ars408_obj_1_general_obj_vrel_long_is_in_range(obj_1_general_.obj_vrel_long)){
-                    obj_temp.VrelLong = obj_1_general_.obj_vrel_long;
+                    obj_temp.VrelLong = 
+                    conti_ars408_obj_1_general_obj_vrel_long_decode(obj_1_general_.obj_vrel_long);
                 }
                 if (conti_ars408_obj_1_general_obj_vrel_lat_is_in_range(obj_1_general_.obj_vrel_lat)){
-                    obj_temp.VrelLat = obj_1_general_.obj_vrel_lat;
+                    obj_temp.VrelLat = 
+                    conti_ars408_obj_1_general_obj_vrel_lat_decode(obj_1_general_.obj_vrel_lat);
                 }
                 if (conti_ars408_obj_1_general_obj_dyn_prop_is_in_range(obj_1_general_.obj_dyn_prop)){
-                    obj_temp.DynProp = obj_1_general_.obj_dyn_prop;
+                    obj_temp.DynProp = 
+                    conti_ars408_obj_1_general_obj_dyn_prop_decode(obj_1_general_.obj_dyn_prop);
                 }
                 if (conti_ars408_obj_1_general_obj_rcs_is_in_range(obj_1_general_.obj_rcs)){
-                    obj_temp.RCS = obj_1_general_.obj_rcs;
+                    obj_temp.RCS = 
+                    conti_ars408_obj_1_general_obj_rcs_decode(obj_1_general_.obj_rcs);
                 }
                 can_msg_.objs_general.push_back(obj_temp);
                 std::cout << "Object general information: " << std::to_string(can_msg_.objs_general.back().DistLong) << std::endl;
-                //std::cout << "Object general information: "<< std::endl;
-            
             }
             break;
 
@@ -114,38 +114,46 @@ void ContiController::DecodeMsgPublish(const CanFrame &frame) {
                 conti_ars408_obj_2_quality_unpack(&obj_2_quality_, frame.data, sizeof(frame.data));
                 radar_driver::Conti_obj_quality quality_temp;
                 if (conti_ars408_obj_2_quality_obj_id_is_in_range(obj_2_quality_.obj_id)){
-                    quality_temp.ID = obj_2_quality_.obj_id;
+                    quality_temp.ID = 
+                    conti_ars408_obj_2_quality_obj_id_decode(obj_2_quality_.obj_id);
                 }
                 if (conti_ars408_obj_2_quality_obj_dist_long_rms_is_in_range(obj_2_quality_.obj_dist_long_rms)){
-                    quality_temp.DistLong_rms = obj_2_quality_.obj_dist_long_rms;
+                    quality_temp.DistLong_rms = 
+                    conti_ars408_obj_2_quality_obj_dist_long_rms_decode(obj_2_quality_.obj_dist_long_rms);
                 }
                 if (conti_ars408_obj_2_quality_obj_vrel_long_rms_is_in_range(obj_2_quality_.obj_vrel_long_rms)){
-                    quality_temp.VrelLong_rms = obj_2_quality_.obj_vrel_long_rms;
+                    quality_temp.VrelLong_rms = 
+                    conti_ars408_obj_2_quality_obj_vrel_long_rms_decode(obj_2_quality_.obj_vrel_long_rms);
                 }
                 if (conti_ars408_obj_2_quality_obj_dist_lat_rms_is_in_range(obj_2_quality_.obj_dist_lat_rms)){
-                    quality_temp.DisLat_rms = obj_2_quality_.obj_dist_lat_rms;
+                    quality_temp.DisLat_rms = 
+                    conti_ars408_obj_2_quality_obj_dist_lat_rms_decode(obj_2_quality_.obj_dist_lat_rms);
                 }
                 if (conti_ars408_obj_2_quality_obj_vrel_lat_rms_is_in_range(obj_2_quality_.obj_vrel_lat_rms)){
-                    quality_temp.VrelLat_rms = obj_2_quality_.obj_dist_lat_rms;
+                    quality_temp.VrelLat_rms = 
+                    conti_ars408_obj_2_quality_obj_vrel_lat_rms_decode(obj_2_quality_.obj_dist_lat_rms);
                 }
                 if (conti_ars408_obj_2_quality_obj_arel_lat_rms_is_in_range(obj_2_quality_.obj_arel_lat_rms)){
-                    quality_temp.ArelLat_rms = obj_2_quality_.obj_arel_lat_rms;
+                    quality_temp.ArelLat_rms = 
+                    conti_ars408_obj_2_quality_obj_arel_lat_rms_decode(obj_2_quality_.obj_arel_lat_rms);
                 }
                 if (conti_ars408_obj_2_quality_obj_arel_long_rms_is_in_range(obj_2_quality_.obj_arel_long_rms)){
-                    quality_temp.ArelLong_rms = obj_2_quality_.obj_arel_long_rms;
+                    quality_temp.ArelLong_rms = 
+                    conti_ars408_obj_2_quality_obj_arel_long_rms_decode(obj_2_quality_.obj_arel_long_rms);
                 }
                 if (conti_ars408_obj_2_quality_obj_orientation_rms_is_in_range(obj_2_quality_.obj_orientation_rms)){
-                    quality_temp.Orientation_rms = obj_2_quality_.obj_orientation_rms;
+                    quality_temp.Orientation_rms = 
+                    conti_ars408_obj_2_quality_obj_orientation_rms_decode(obj_2_quality_.obj_orientation_rms);
                 }
                 if (conti_ars408_obj_2_quality_obj_meas_state_is_in_range(obj_2_quality_.obj_meas_state)){
-                    quality_temp.MeasState = obj_2_quality_.obj_meas_state;
+                    quality_temp.MeasState = 
+                    conti_ars408_obj_2_quality_obj_meas_state_decode(obj_2_quality_.obj_meas_state);
                 }
                 if (conti_ars408_obj_2_quality_obj_prob_of_exist_is_in_range(obj_2_quality_.obj_prob_of_exist)){
-                    quality_temp.ProbOfExist = obj_2_quality_.obj_prob_of_exist;
+                    quality_temp.ProbOfExist = 
+                    conti_ars408_obj_2_quality_obj_prob_of_exist_decode(obj_2_quality_.obj_prob_of_exist);
                 }
                 can_msg_.objs_quality.push_back(quality_temp);
-                //std::cout << "Object quality information: " << std::endl;
-            
             }
             break;
         
@@ -155,31 +163,35 @@ void ContiController::DecodeMsgPublish(const CanFrame &frame) {
                 conti_ars408_obj_3_extended_unpack(&obj_3_extended_, frame.data, sizeof(frame.data));
                 radar_driver::Conti_obj_extended extended_temp;
                 if (conti_ars408_obj_3_extended_obj_id_is_in_range(obj_3_extended_.obj_id)){
-                    extended_temp.ID = obj_3_extended_.obj_id;
+                    extended_temp.ID = 
+                    conti_ars408_obj_3_extended_obj_id_decode(obj_3_extended_.obj_id);
                 }
                 if (conti_ars408_obj_3_extended_obj_arel_long_is_in_range(obj_3_extended_.obj_arel_long)){
-                    extended_temp.ArelLong = obj_3_extended_.obj_arel_long;
+                    extended_temp.ArelLong = 
+                    conti_ars408_obj_3_extended_obj_arel_long_decode(obj_3_extended_.obj_arel_long);
                 }
                 if (conti_ars408_obj_3_extended_obj_class_is_in_range(obj_3_extended_.obj_class)){
-                    extended_temp.Class = obj_3_extended_.obj_class;
+                    extended_temp.Class = 
+                    conti_ars408_obj_3_extended_obj_class_decode(obj_3_extended_.obj_class);
                 }
                 if (conti_ars408_obj_3_extended_obj_arel_lat_is_in_range(obj_3_extended_.obj_arel_lat)){
-                    extended_temp.ArelLat = obj_3_extended_.obj_arel_lat;
+                    extended_temp.ArelLat = 
+                    conti_ars408_obj_3_extended_obj_arel_lat_decode(obj_3_extended_.obj_arel_lat);
                 }
                 if (conti_ars408_obj_3_extended_obj_orientation_angle_is_in_range(obj_3_extended_.obj_orientation_angle)){
-                    extended_temp.OrientationAngle = obj_3_extended_.obj_orientation_angle;
+                    extended_temp.OrientationAngle = 
+                    conti_ars408_obj_3_extended_obj_orientation_angle_decode(obj_3_extended_.obj_orientation_angle);
                 }
                 if (conti_ars408_obj_3_extended_obj_length_is_in_range(obj_3_extended_.obj_length)){
-                    extended_temp.Length = obj_3_extended_.obj_length;
+                    extended_temp.Length = 
+                    conti_ars408_obj_3_extended_obj_length_decode(obj_3_extended_.obj_length);
                 }
                 if (conti_ars408_obj_3_extended_obj_width_is_in_range(obj_3_extended_.obj_width)){
-                    extended_temp.Width = obj_3_extended_.obj_width;
+                    extended_temp.Width = 
+                    conti_ars408_obj_3_extended_obj_width_decode(obj_3_extended_.obj_width);
                 }
                 can_msg_.objs_extended.push_back(extended_temp);
                 radar_60D_update_ = true;
-                //td::cout << "Object extended information: " << std::endl;
-                //std::cout << "Object width information: "  << obj_3_extended_.obj_width << std::endl;
-                //std::cout << frame.data << std::endl;
             }
             break;
     }
