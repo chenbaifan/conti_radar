@@ -4,23 +4,18 @@
 #include "radar/radar_controller.h"
 #include "conti_ars408.h"
 #include "std_msgs/UInt8.h"
-//#include <pb_msgs/candata_pb.pb.h>
-/*
-#include <radar_driver/Conti_cluster_general.h>
-#include <radar_driver/Conti_cluster_quality.h>
-#include <radar_driver/Conti_cluster_status.h>
-#include <radar_driver/Conti_cluster_general.h>
-*/
-#include <radar_driver/ContiRaw.h>
+#include <radar_driver/Radar_Target.h>
+#include <radar_driver/Radar_State_Cfg.h>
+
 /**
- * @namespace saic::drivers::canbus
- * @brief saic::drivers::canbus
+ * @namespace radar_driver
+ * @brief radar_driver
  */
 namespace radar_driver {
 
 /**
- * @class GemController
- * @brief Derived class which inits vehicle can parameters, 
+ * @class ContiController
+ * @brief Derived class which inits radar can parameters, 
  * Decodes and encodes can ros messages  
  */
 class ContiController:public RadarController{
@@ -45,38 +40,55 @@ public:
 
 private:
     /**
-    * @brief Called to decode GEM vehicle can frame data to ros controll
+    * @brief Called to decode radar can frame data to ros controll
     * feedback 
     */
     void DecodeMsgPublish(const CanFrame& frame);
-    /**
-    * @brief Called to encode ros command msgto  GEM vehicle can frame data 
-    */
-    //void EncodeMsgCallback(const candata_msgs_pb::CANData& msg);
 
-    //void EncodeMsgAuxCallback(const candata_msgs_pb::Auxiliary& msg);
+    void DecodeObjectStatus(const CanFrame &frame);
+    void DecodeObjectGeneral(const CanFrame &frame);
+    void DecodeObjectQuality(const CanFrame &frame);
+    void DecodeObjectExtended(const CanFrame &frame);
+    
+    void DecodeClusterStatus(const CanFrame &frame);
+    void DecodeClusterGeneral(const CanFrame &frame);
+    void DecodeClusterQuality(const CanFrame &frame);
+    
+    void DecodeRadarState(const CanFrame &frame);
+    void DecodeFilterCfgHeader(const CanFrame &frame);
+    void DecodeFilterCfg(const CanFrame &frame);
+
+
+    void DecodeSoftVersionId(const CanFrame &frame);
 
     //used for encoding in frame id 16
     //int motion_control_counter_ = 0;
 
     //Ros can msg
-    radar_driver::ContiRaw can_msg_;
-    bool radar_60A_update_;
-    bool radar_60D_update_;
-
+    radar_driver::Radar_Target can_msg_radar_target_;
+    radar_driver::Radar_State_Cfg can_msg_radar_state_cfg;
+    bool radar_target_start_update_;
+    bool radar_target_end_update_;
+    bool radar_state_update_;
 
     conti_ars408_obj_0_status_t obj_0_status_; 
     conti_ars408_obj_1_general_t obj_1_general_;
     conti_ars408_obj_2_quality_t obj_2_quality_;
-    conti_ars408_obj_3_extended_t obj_3_extended_;    
+    conti_ars408_obj_3_extended_t obj_3_extended_;  
+
+    conti_ars408_cluster_0_status_t cluster_0_status_;
+    conti_ars408_cluster_1_general_t cluster_1_general_;
+    conti_ars408_cluster_2_quality_t cluster_2_quality_;
+    
+    conti_ars408_radar_state_t radar_state_;
+    conti_ars408_filter_state_header_t filter_state_header_;
+    conti_ars408_filter_cfg_t filter_cfg_;
     
     //Ros can msg
     // Can decode&encode msg define 
-
-
     //DISALLOW_COPY_AND_ASSIGN(ContiController);
 };
 
 } // namespace radar_driver
 
-#endif //GEM_CONTROLLER_H
+#endif //

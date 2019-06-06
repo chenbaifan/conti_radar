@@ -4,9 +4,6 @@
 #include<iostream>
 #include <ros/ros.h>
 #include "radar/conti_ars408/conti_ars408_controller.h"
-//#include "vehicle/gem/gem_controller.h"
-//#include "vehicle/mggs/mggs_controller.h"
-//#include "vehicle/maxus/maxus_controller.h"
 
 /**
  * @namespace radar_driver
@@ -58,20 +55,6 @@ RadarController* RadarControllerFactory::create_controller(ros::NodeHandle nh, r
     {
         return new ContiController(param);
     }
-    /*
-    else if (param.vehicle_model == "mggs")
-    {
-        return new MggsController(param);
-    }
-    else if (param.vehicle_model == "maxus")
-    {
-        return new MaxusController(param);
-    }
-    else if (param.vehicle_model == "pacifica")
-    {
-        return new PacificaController(param);
-    }
-    */
 }
 
 } // namespace radar_driver

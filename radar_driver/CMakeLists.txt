@@ -7,26 +7,27 @@ include(FindProtobuf)
 
 add_compile_options(-std=c++14)
 
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
-  set(NVIDIA_DRIVE 1)
-  add_definitions(-DNVIDIA_DRIVE)
-endif()
+#if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+#  set(NVIDIA_DRIVE 1)
+#  add_definitions(-DNVIDIA_DRIVE)
+#endif()
 
 
-if (NVIDIA_DRIVE)
-  find_package(CUDA REQUIRED)
-  find_package(Threads REQUIRED)
-  find_package(Driveworks REQUIRED)
-  include_directories(${CUDA_INCLUDE_DIRS} ${Driveworks_INCLUDE_DIR})
 
-  list(APPEND Driveworks_LIBRARIES ${CUDA_LIBRARIES} ${CUDA_cublas_LIBRARY})
+#if (NVIDIA_DRIVE)
+#  find_package(CUDA REQUIRED)
+#  find_package(Threads REQUIRED)
+#  find_package(Driveworks REQUIRED)
+#  include_directories(${CUDA_INCLUDE_DIRS} ${Driveworks_INCLUDE_DIR})
 
-  if(LINUX)
-    list(APPEND Driveworks_LIBRARIES ${CMAKE_THREAD_LIBS_INIT} dl rt)
-  elseif(VIBRANTE)
-    list(APPEND Driveworks_LIBRARIES ${vibrante_LIBRARIES} ${vibrante_Xlibs_LIBRARIES} nvmedia ${EGL_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
-  endif()
-endif()
+#  list(APPEND Driveworks_LIBRARIES ${CUDA_LIBRARIES} ${CUDA_cublas_LIBRARY})
+
+#  if(LINUX)
+#    list(APPEND Driveworks_LIBRARIES ${CMAKE_THREAD_LIBS_INIT} dl rt)
+#  elseif(VIBRANTE)
+#    list(APPEND Driveworks_LIBRARIES ${vibrante_LIBRARIES} ${vibrante_Xlibs_LIBRARIES} nvmedia ${EGL_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+# endif()
+#endif()
 
 
 find_package(catkin REQUIRED COMPONENTS
@@ -57,8 +58,9 @@ add_message_files(
   Conti_cluster_quality.msg 
   # Motion Input
   Conti_motion_rx.msg    
-  # RadarRaw
   ContiRaw.msg 
+  Radar_Target.msg
+  Radar_State_Cfg.msg
 )
 
 # Generate added messages and services with any dependencies listed here
@@ -76,19 +78,12 @@ generate_messages(
 ## INCLUDE_DIRS: uncomment this if your package contains header files
 ## LIBRARIES: libraries you create in this project that dependent projects also need
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
-if (NOT NVIDIA_DRIVE)
-  catkin_package(
-    CATKIN_DEPENDS roscpp message_runtime std_msgs message_generation
-    INCLUDE_DIRS include
-    LIBRARIES kvaser_interface
-  )
-else()
-  catkin_package(
-    CATKIN_DEPENDS roscpp message_runtime std_msgs message_generation
-    INCLUDE_DIRS include
-    LIBRARIES mttcan_interface
-  )
-endif()
+catkin_package(
+  CATKIN_DEPENDS roscpp message_runtime std_msgs message_generation
+  INCLUDE_DIRS include
+  LIBRARIES kvaser_interface
+)
+
 
 
 ###########
@@ -106,28 +101,16 @@ include_directories(
 ###################
 ## CAN Interface ##
 ###################
+# Kvaser can interface
+add_library(kvaser_interface
+  src/can_interface/kvaser_interface.cc
+  src/can_interface/utils.cc
+)
+target_link_libraries(kvaser_interface
+  canlib
+  ${catkin_LIBRARIES}
+)
 
-if (NOT NVIDIA_DRIVE)
-  # Kvaser can interface
-  add_library(kvaser_interface
-    src/can_interface/kvaser_interface.cc
-    src/can_interface/utils.cc
-  )
-  target_link_libraries(kvaser_interface
-    canlib
-    ${catkin_LIBRARIES}
-  )
-else()
-  # Mtt can interface
-  add_library(mttcan_interface
-    src/can_interface/mttcan_interface.cc
-    src/can_interface/utils.cc
-  )
-  target_link_libraries(mttcan_interface
-    ${Driveworks_LIBRARIES}
-    ${catkin_LIBRARIES}
-  )  
-endif()
 
 ########################
 ## Radar Controller ##
@@ -140,11 +123,7 @@ add_executable(radar_controller
   src/radar/conti_ars408/conti_ars408.cc
 )
 
-if (NOT NVIDIA_DRIVE)
-  target_link_libraries(radar_controller kvaser_interface ${catkin_LIBRARIES} ${PROTOBUF_LIBRARIES})
-else()
-  target_link_libraries(radar_controller mttcan_interface ${catkin_LIBRARIES} ${PROTOBUF_LIBRARIES})
-endif()
+target_link_libraries(radar_controller kvaser_interface ${catkin_LIBRARIES} ${PROTOBUF_LIBRARIES})
 add_dependencies(radar_controller ${catkin_EXPORTED_TARGETS})
 
 #############
@@ -156,28 +135,17 @@ install(DIRECTORY include/${PROJECT_NAME}/
   FILES_MATCHING PATTERN "*.h"
 )
 
-#py_install_executable_script(scripts teleop_keyboard)
-#py_install_executable_script(scripts teleop_keyboard_aux)
-
 install(TARGETS radar_controller
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
-if (NOT NVIDIA_DRIVE)
-  install(TARGETS kvaser_interface
-    ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-    LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-    RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-  )
-else()
-  install(TARGETS mttcan_interface
-    ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-    LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-    RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-  )
-endif()
+install(TARGETS kvaser_interface
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 
 install(DIRECTORY launch
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}

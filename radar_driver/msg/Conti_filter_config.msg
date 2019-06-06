@@ -1,3 +1,6 @@
+uint8       Nof_Cluster_FilterCfg
+uint8       Nof_Object_FilterCfg
+
 bool        Valid
 bool        Active
 uint8       Index
