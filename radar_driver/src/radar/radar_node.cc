@@ -5,7 +5,7 @@ int main(int argc, char** argv) {
 
   ROS_INFO("Conti ARS408");
   ros::init(argc, argv, "radar_conti_node");
-  ros::NodeHandle nh("radar");
+  ros::NodeHandle nh("radar_driver");
   ros::NodeHandle private_nh("~");
   ros::AsyncSpinner spinner(1);
 
