@@ -1,0 +1,39 @@
+uint8       Nof_Cluster_FilterCfg
+uint8       Nof_Object_FilterCfg
+
+bool        Valid
+bool        Active
+uint8       Index
+bool        Output_Type
+
+uint16      Min_NofObj
+float32     Min_Distance
+float32     Min_Azimuth
+float32     Min_VrelOncome
+float32     Min_VrelDepart
+float32     Min_RCS
+float32     Min_Lifetime
+float32     Min_Size
+uint16      Min_ProbExists
+float32     Min_Y
+float32     Min_X
+float32     Min_VYRightLeft
+float32     Min_VXOncome
+float32     VYLeftRight
+float32     Min_VXDepart
+
+uint16      Max_NofObj
+float32     Max_Distance
+float32     Max_Azimuth
+float32     Max_VrelOncome
+float32     Max_VrelDepart
+float32     Max_RCS
+float32     Max_Lifetime
+float32     Max_Size
+uint16      Max_ProbExists
+float32     Max_Y
+float32     Max_X
+float32     Max_VYRightLeft
+float32     Max_VXOncome
+float32     Max_VYLeftRight
+float32     Max_VXDepart

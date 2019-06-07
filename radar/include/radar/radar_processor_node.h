@@ -31,6 +31,34 @@
 #include <memory>
 #include <queue>
 
+#define PI 3.14159265
+
+class EsrCluster{
+private:
+    static const int ESR_RANGE;
+    static const int R_RESOLUTION;
+    static const float ESR_FOV;
+    static const float THETA_RESOLUTION;
+    //ros::Subscriber Esr_sub_;
+    //ros::Publisher Esr_clu_pub_;
+    std::shared_ptr<ros::Publisher> Esr_viz_pub_;
+    std::vector<std::vector< int >> W_;
+    int f_;
+    int h_;
+    void initLUT();
+
+    void viz_clustered_marker(const std::vector< std::shared_ptr<delphi::EsrTrack> > clustered, visualization_msgs::MarkerArray &viz_markers_array);
+    std::vector< std::shared_ptr<delphi::EsrTrack> > clustering(const std::vector<std::vector<std::shared_ptr< delphi::EsrTrack> > > & detections_grid, std::vector< std::vector<bool> >& visited, int m , int n);// m for row, n for col
+    delphi::EsrTrack merge_cluster(const std::vector< std::shared_ptr<delphi::EsrTrack> > &clustered);
+    bool InBound(int i,int j ,int r,int c);
+
+public:
+    EsrCluster(const EsrCluster &) = delete;
+    EsrCluster();
+    EsrCluster(int f, int h);
+    EsrCluster(const std::shared_ptr<ros::Publisher> esr_viz, int f, int h);//, std::string esr_topic_name, std::string esr_clustered_topic_name);
+    radar::Radar_Target radar_callback(const std::shared_ptr<radar::Radar_Target> detections);
+};
 
 class RadarCompensater{
 private:
@@ -39,7 +67,7 @@ private:
     ros::Subscriber ESR_sub_;
     ros::Publisher radar_pub_;
     std::unique_ptr<EsrCluster> cluster_;
-    std::unique_ptr<tf2_ros::MessageFilter<delphi::EsrTrackArray>> tf2_filter_;
+    std::unique_ptr<tf2_ros::MessageFilter<radar::Radar_Target>> tf2_filter_;
 
     const std::string map_frame_;
     const std::string ESR_frame_;
@@ -57,11 +85,11 @@ private:
 
     void vcu_callback(const custom_msgs::CANData::ConstPtr &msg);
     custom_msgs::objectList
-        convert_to_map_frame(const std::shared_ptr<delphi::EsrTrackArray> detections);
-    void radar_callback(const delphi::EsrTrackArray::ConstPtr detections);
-    void received_radar(const delphi::EsrTrackArray::ConstPtr detections);
+        convert_to_map_frame(const std::shared_ptr<radar::Radar_Target> detections);
+    void radar_callback(const radar::Radar_Target::ConstPtr detections);
+    void received_radar(const radar::Radar_Target::ConstPtr detections);
 
-    void compensate_ego_motion(const std::shared_ptr<delphi::EsrTrackArray> detections);
+    void compensate_ego_motion(const std::shared_ptr<radar::Radar_Target> detections);
 
 public:
     EgoCompensater() = delete;
