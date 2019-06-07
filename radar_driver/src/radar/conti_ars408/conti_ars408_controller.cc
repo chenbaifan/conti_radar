@@ -19,8 +19,8 @@ void ContiController::init(ros::NodeHandle &nh) {
     radar_target_end_update_ = false;
     radar_state_update_ = false;    
     
-    can_target_ = nh.advertise<radar_driver::Radar_Target>("radar_target",1);
-    can_radar_state_ = nh.advertise<radar_driver::Radar_State_Cfg>("radar_state",1);
+    can_target_ = nh.advertise<radar_driver::Radar_Target>("driver/radar/conti/radar_target",1);
+    can_radar_state_ = nh.advertise<radar_driver::Radar_State_Cfg>("/driver/radar/conti/radar_state",1);
     can_recv_thread_.reset(new std::thread([this] { RecvThreadFunc(); }));
 }
 
