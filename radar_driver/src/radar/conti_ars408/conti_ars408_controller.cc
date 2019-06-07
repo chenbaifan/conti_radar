@@ -18,9 +18,15 @@ void ContiController::init(ros::NodeHandle &nh) {
     radar_target_start_update_ = false;
     radar_target_end_update_ = false;
     radar_state_update_ = false;    
-    
+    // Decode can_msg to ros_msg
     can_target_ = nh.advertise<radar_driver::Radar_Target>("driver/radar/conti/radar_target",1);
     can_radar_state_ = nh.advertise<radar_driver::Radar_State_Cfg>("/driver/radar/conti/radar_state",1);
+    // Encode ros_msg to can_msg
+    can_cmd_radar_cfg_ = nh.subscribe("/Perception/radar/radar_cfg", 100,
+                            &ContiController::EncodeMsgCallback_RadarCfg, this);
+    can_cmd_motion_ = nh.subscribe("/vehicle/canFeedback", 100,
+                            &ContiController::EncodeMsgCallback_Motion, this);
+
     can_recv_thread_.reset(new std::thread([this] { RecvThreadFunc(); }));
 }
 
@@ -36,6 +42,7 @@ void ContiController::RecvThreadFunc() {
             continue;
     }
 }
+
 
 void ContiController::DecodeMsgPublish(const CanFrame &frame) {
     switch (frame.id) {
@@ -420,7 +427,7 @@ void ContiController::DecodeFilterCfgHeader(const CanFrame &frame){
 }
 
 void ContiController::DecodeFilterCfg(const CanFrame &frame){
-    conti_ars408_filter_cfg_unpack(&filter_cfg_, frame.data, sizeof(frame.data));
+    conti_ars408_filter_state_cfg_unpack(&filter_state_cfg_, frame.data, sizeof(frame.data));
     if (conti_ars408_filter_state_cfg_filter_state_active_is_in_range(filter_cfg_.filter_cfg_active)){
         can_msg_radar_state_cfg.filter_config.Active = 
         conti_ars408_filter_state_cfg_filter_state_active_decode(filter_cfg_.filter_cfg_active);
@@ -559,172 +566,47 @@ void ContiController::DecodeFilterCfg(const CanFrame &frame){
 
 
 
-/*
 
-void ContiController::EncodeMsgCallback(const candata_msgs_pb::CANData &msg) {
+
+void ContiController::EncodeMsgCallback_RadarCfg(const radar_driver::Conti_radar_config &msg) {
     CanFrame frame;
     frame.dlc = 8;
+    frame.id = 512;
 
-    int longitudinal_control_mode = 0;
-    int steering_control_mode = 0;
-    if (msg.has_control_mode()) {
-        switch (msg.control_mode()) {
-            case candata_msgs_pb::CANData::SPEED_CURVATURE:
-                longitudinal_control_mode = 1;
-                steering_control_mode = 2;
-                break;
-            case candata_msgs_pb::CANData::SPEED_SLOPE_CURVATURE:
-                longitudinal_control_mode = 1;
-                steering_control_mode = 2;
-                break;
-            case candata_msgs_pb::CANData::STEER_ACC_DEC:
-                longitudinal_control_mode = 2;
-                steering_control_mode = 1;
-                break;
-            case candata_msgs_pb::CANData::STEER_ACC_DEC_TORQUE:
-                longitudinal_control_mode = 2;
-                steering_control_mode = 1;
-                break;
-            case candata_msgs_pb::CANData::STEER_THROTTLE_BRAKE_PEDAL:
-                longitudinal_control_mode = 3;
-                steering_control_mode = 1;
-                break;
-            case candata_msgs_pb::CANData::TORQUE_DEC_CURVATURE:
-                longitudinal_control_mode = 2;
-                steering_control_mode = 2;
-                break;
-            case candata_msgs_pb::CANData::THROTTLE_BRAKE_CURVATURE:
-                longitudinal_control_mode = 3;
-                steering_control_mode = 2;
-                break;
-            case candata_msgs_pb::CANData::ACC_DEC_CURVATURE:
-                longitudinal_control_mode = 2;
-                steering_control_mode = 2;
-                break;
-            case candata_msgs_pb::CANData::SPEED_STEER:
-                longitudinal_control_mode = 1;
-                steering_control_mode = 1;
-                break;
-            default:
-                longitudinal_control_mode = 0;
-                steering_control_mode = 0;
-                break;
-        }
-    }
+    struct conti_ars408_radar_configuration_t cmd_RadarCfg;
 
-    // message id 16, ADC_MotionControl1
-    if (msg.has_control_mode()) {
-        struct motivo_rexus_adc_motion_control1_t cmd16;
-        cmd16.adc_cmd_autonomy_state =
-            motivo_rexus_adc_motion_control1_adc_cmd_autonomy_state_encode(1.0);
-        cmd16.adc_cmd_steering_control_mode =
-            motivo_rexus_adc_motion_control1_adc_cmd_steering_control_mode_encode(
-                steering_control_mode);
-        cmd16.adc_cmd_longitudinal_control_mode =
-            motivo_rexus_adc_motion_control1_adc_cmd_longitudinal_control_mode_encode(
-                longitudinal_control_mode);
-        cmd16.adc_motion_control_counter =
-            motivo_rexus_adc_motion_control1_adc_motion_control_counter_encode(
-                (motion_control_counter_++) % 4);
-        cmd16.adc_cmd_steer_wheel_angle =
-            -motivo_rexus_adc_motion_control1_adc_cmd_steer_wheel_angle_encode(
-                msg.steering_wheel_angle_deg());
-        cmd16.adc_cmd_vehicle_velocity =
-            motivo_rexus_adc_motion_control1_adc_cmd_vehicle_velocity_encode(
-                msg.velocity());
-        cmd16.adc_cmd_vehicle_acceleration =
-            motivo_rexus_adc_motion_control1_adc_cmd_vehicle_acceleration_encode(
-                msg.acc());
-        cmd16.adc_cmd_throttle_position =
-            motivo_rexus_adc_motion_control1_adc_cmd_throttle_position_encode(
-                msg.throttle_pedal_pcnt());
-        cmd16.adc_cmd_brake_pressure =
-            motivo_rexus_adc_motion_control1_adc_cmd_brake_pressure_encode(
-                msg.brake_pedal_psi());
-        cmd16.adc_motion_control_security =
-            motivo_rexus_adc_motion_control1_adc_motion_control_security_encode(
-                0.0);
-        motivo_rexus_adc_motion_control1_pack(frame.data, &cmd16,
-                                                sizeof(frame.data));
-        frame.id = 16;
-        SendFunc(&frame);
-    }
-
-    // message id 17, ADC_MotionCtrlLim
-    // send message 17 regardless of incoming control rihgt now
-    struct motivo_rexus_adc_motion_ctrl_lim_t cmd17;
-    cmd17.adc_cmd_steer_wheel_angle_limit =
-        motivo_rexus_adc_motion_ctrl_lim_adc_cmd_steer_wheel_angle_limit_encode(
-            600.0);
-    cmd17.adc_cmd_steering_rate =
-        motivo_rexus_adc_motion_ctrl_lim_adc_cmd_steering_rate_encode(400.0);
-    cmd17.adc_cmd_throttle_command_limit =
-        motivo_rexus_adc_motion_ctrl_lim_adc_cmd_throttle_command_limit_encode(
-            100.0);
-    cmd17.adc_cmd_vehicle_lateral_acc_limit =
-        motivo_rexus_adc_motion_ctrl_lim_adc_cmd_vehicle_lateral_acc_limit_encode(
-            10.0);
-    cmd17.adc_cmd_vehicle_velocity_limit =
-        motivo_rexus_adc_motion_ctrl_lim_adc_cmd_vehicle_velocity_limit_encode(
-            25.0);
-    cmd17.adc_cmd_vehicle_acceleration_limit =
-        motivo_rexus_adc_motion_ctrl_lim_adc_cmd_vehicle_acceleration_limit_encode(
-            10.0);
-    cmd17.adc_cmd_vehicle_deceleration_limit =
-        motivo_rexus_adc_motion_ctrl_lim_adc_cmd_vehicle_deceleration_limit_encode(
-            10.0);
-    motivo_rexus_adc_motion_ctrl_lim_pack(frame.data, &cmd17, sizeof(frame.data));
-    frame.id = 17;
-    SendFunc(&frame);
-
-    // message id 18, ADC_MotionControl2
-    if (msg.has_control_mode()) {
-        struct motivo_rexus_adc_motion_control2_t cmd18;
-        cmd18.adc_cmd_steering_curvature =
-            motivo_rexus_adc_motion_control2_adc_cmd_steering_curvature_encode(
-                -msg.curvature());
-        motivo_rexus_adc_motion_control2_pack(frame.data, &cmd18,
-                                            sizeof(frame.data));
-        frame.id = 18;
-        SendFunc(&frame);
-    }
-}
-
-
-void ContiController::EncodeMsgAuxCallback(const candata_msgs_pb::Auxiliary &msg) {
-    CanFrame frame;
-    frame.dlc = 8;
-    frame.id = 272;
-
-    struct motivo_rexus_adc_auxiliary_control_t cmd272;
-    if (msg.turn_signal() == candata_msgs_pb::Auxiliary::LEFT_TURN_SIGNAL) {
-    cmd272.adc_cmd_turn_signal =
-        motivo_rexus_adc_auxiliary_control_adc_cmd_turn_signal_encode(1.0);
-    }
-    else if (msg.turn_signal() == candata_msgs_pb::Auxiliary::RIGHT_TURN_SIGNAL) {
-        cmd272.adc_cmd_turn_signal =
-            motivo_rexus_adc_auxiliary_control_adc_cmd_turn_signal_encode(2.0);
-    }
-    else {
-        cmd272.adc_cmd_turn_signal =
-            motivo_rexus_adc_auxiliary_control_adc_cmd_turn_signal_encode(0.0);
-    }
-    cmd272.adc_cmd_horn =
-        motivo_rexus_adc_auxiliary_control_adc_cmd_horn_encode(msg.horn());
-    cmd272.adc_cmd_hazard_lights =
-        motivo_rexus_adc_auxiliary_control_adc_cmd_hazard_lights_encode(msg.hazard_lights());
-    if (msg.wiper() == candata_msgs_pb::Auxiliary::WIPER_OFF) {
-        cmd272.adc_cmd_wiper =
-            motivo_rexus_adc_auxiliary_control_adc_cmd_wiper_encode(false);
-    }
-    else {
-        cmd272.adc_cmd_wiper =
-            motivo_rexus_adc_auxiliary_control_adc_cmd_wiper_encode(true);
-    }
-    motivo_rexus_adc_auxiliary_control_pack(frame.data, &cmd272,
-                                            sizeof(frame.data));
+    cmd_RadarCfg.radar_cfg_max_distance_valid = msg.MaxDistance_valid;
+    cmd_RadarCfg.radar_cfg_max_distance = msg.MaxDistance;
+    cmd_RadarCfg.radar_cfg_sensor_id_valid = msg.SensorID_valid;
+    cmd_RadarCfg.radar_cfg_sensor_id = msg.SensorID;
+    cmd_RadarCfg.radar_cfg_radar_power_valid = msg.RadarPower_valid;
+    cmd_RadarCfg.radar_cfg_radar_power = msg.RadarPower;
+    cmd_RadarCfg.radar_cfg_output_type_valid = msg.OutputType_valid;
+    cmd_RadarCfg.radar_cfg_output_type = msg.OutputType;
+    cmd_RadarCfg.radar_cfg_send_quality_valid = msg.SendQuality_valid;
+    cmd_RadarCfg.radar_cfg_send_quality = msg.SendQuality;
+    cmd_RadarCfg.radar_cfg_send_ext_info_valid = msg.SendExtInfo_valid;
+    cmd_RadarCfg.radar_cfg_send_ext_info = msg.SendExtInfo; 
+    cmd_RadarCfg.radar_cfg_sort_index_valid = msg.SortIndex_valid;
+    cmd_RadarCfg.radar_cfg_sort_index = msg.SortIndex;
+    cmd_RadarCfg.radar_cfg_store_in_nvm_valid = msg.StoreInNVM_valid;
+    cmd_RadarCfg.radar_cfg_store_in_nvm = msg.StoreInNVM;
+    cmd_RadarCfg.radar_cfg_ctrl_relay_valid = msg.CtrlRelay_valid;
+    cmd_RadarCfg.radar_cfg_ctrl_relay = msg.CtrlRelay;
+    cmd_RadarCfg.radar_cfg_rcs_threshold_valid = msg.RCS_Threshold_valid;
+    cmd_RadarCfg.radar_cfg_rcs_threshold = msg.RCS_Threshold;
+    
+    conti_ars408_radar_configuration_pack(frame.data, &cmd_RadarCfg, sizeof(frame.data));
     SendFunc(&frame);
 }
-*/
+
+void ContiController::EncodeMsgCallback_FilterCfg(const radar_driver::Conti_filter_config &msg){
+    ;
+}
+
+void ContiController::EncodeMsgAuxCallback_Motion(const candata_msgs_pb::CANData &msg) {
+   ;
+}
+
 
 }

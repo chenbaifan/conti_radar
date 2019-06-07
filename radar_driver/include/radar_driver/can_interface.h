@@ -25,6 +25,7 @@ typedef struct CANCardParameter{
     int hardware_id = 0;
     int circuit_id = 0;
     std::string radar_model;
+    std::string radar_mode;
     bool echo_on = true;
 }CANCardParameter;
 

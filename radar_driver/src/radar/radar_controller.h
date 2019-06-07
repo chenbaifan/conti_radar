@@ -55,8 +55,8 @@ class RadarController{
         ros::Publisher can_radar_state_;
         
         //ros Subscriber
-        ros::Subscriber can_cmd_;
-        ros::Subscriber can_cmd_aux_;
+        ros::Subscriber can_cmd_radar_cfg_;
+        ros::Subscriber can_cmd_motion_;
         
         //bool variable to check for thread running
         bool is_running_ = false;

@@ -4,6 +4,7 @@
 #include "radar/radar_controller.h"
 #include "conti_ars408.h"
 #include "std_msgs/UInt8.h"
+#include <pb_msgs/utils.h>
 #include <radar_driver/Radar_Target.h>
 #include <radar_driver/Radar_State_Cfg.h>
 
@@ -40,8 +41,7 @@ public:
 
 private:
     /**
-    * @brief Called to decode radar can frame data to ros controll
-    * feedback 
+    * @brief Called to decode radar can frame data to ros obj/cluster msg  
     */
     void DecodeMsgPublish(const CanFrame& frame);
 
@@ -58,9 +58,12 @@ private:
     void DecodeFilterCfgHeader(const CanFrame &frame);
     void DecodeFilterCfg(const CanFrame &frame);
 
-
     void DecodeSoftVersionId(const CanFrame &frame);
 
+    // Encode msg 
+    void EncodeMsgCallback_RadarCfg(const radar_driver::Conti_radar_config &msg);
+    void EncodeMsgCallback_FilterCfg(const radar_driver::Conti_filter_config &msg);
+    void EncodeMsgCallback_Motion(const candata_msgs_pb::CANData &msg);
     //used for encoding in frame id 16
     //int motion_control_counter_ = 0;
 
@@ -82,7 +85,7 @@ private:
     
     conti_ars408_radar_state_t radar_state_;
     conti_ars408_filter_state_header_t filter_state_header_;
-    conti_ars408_filter_cfg_t filter_cfg_;
+    conti_ars408_filter_state_cfg_t filter_state_cfg_;
     
     //Ros can msg
     // Can decode&encode msg define 

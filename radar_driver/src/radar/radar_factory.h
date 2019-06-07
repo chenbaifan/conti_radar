@@ -49,6 +49,7 @@ RadarController* RadarControllerFactory::create_controller(ros::NodeHandle nh, r
         }
     }
     private_nh.param("radar_model", param.radar_model, std::string("conti_ars408"));
+    private_nh.param("radar_mode", param.radar_mode, std::string("object"));
     if (exit)
         return nullptr;
     if (param.radar_model == "conti_ars408")

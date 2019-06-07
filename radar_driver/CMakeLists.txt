@@ -58,7 +58,6 @@ add_message_files(
   Conti_cluster_quality.msg 
   # Motion Input
   Conti_motion_rx.msg    
-  ContiRaw.msg 
   Radar_Target.msg
   Radar_State_Cfg.msg
 )
