@@ -7,32 +7,12 @@ include(FindProtobuf)
 
 add_compile_options(-std=c++14)
 
-#if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
-#  set(NVIDIA_DRIVE 1)
-#  add_definitions(-DNVIDIA_DRIVE)
-#endif()
-
-
-
-#if (NVIDIA_DRIVE)
-#  find_package(CUDA REQUIRED)
-#  find_package(Threads REQUIRED)
-#  find_package(Driveworks REQUIRED)
-#  include_directories(${CUDA_INCLUDE_DIRS} ${Driveworks_INCLUDE_DIR})
-
-#  list(APPEND Driveworks_LIBRARIES ${CUDA_LIBRARIES} ${CUDA_cublas_LIBRARY})
-
-#  if(LINUX)
-#    list(APPEND Driveworks_LIBRARIES ${CMAKE_THREAD_LIBS_INIT} dl rt)
-#  elseif(VIBRANTE)
-#    list(APPEND Driveworks_LIBRARIES ${vibrante_LIBRARIES} ${vibrante_Xlibs_LIBRARIES} nvmedia ${EGL_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
-# endif()
-#endif()
-
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
-  std_msgs
+  pb_msgs
+  polyx_nodea
+  common
   message_generation
 )
 

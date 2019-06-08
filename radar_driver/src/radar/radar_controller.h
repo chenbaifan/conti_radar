@@ -7,6 +7,7 @@
 
 #include<ros/ros.h>
 #include<macro.h>
+#include <polyx_nodea/CorrectedIMU.h>
 
 //#include<can_interface/kvaser_interface.h>
 #include "radar_driver/can_interface.h"
@@ -57,6 +58,7 @@ class RadarController{
         //ros Subscriber
         ros::Subscriber can_cmd_radar_cfg_;
         ros::Subscriber can_cmd_motion_;
+        ros::Subscriber can_cmd_yawrate_;
         
         //bool variable to check for thread running
         bool is_running_ = false;

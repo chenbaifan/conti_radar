@@ -19,7 +19,7 @@ float32     Min_Y
 float32     Min_X
 float32     Min_VYRightLeft
 float32     Min_VXOncome
-float32     VYLeftRight
+float32     Min_VYLeftRight
 float32     Min_VXDepart
 
 uint16      Max_NofObj

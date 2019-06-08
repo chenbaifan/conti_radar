@@ -4,9 +4,12 @@
 #include "radar/radar_controller.h"
 #include "conti_ars408.h"
 #include "std_msgs/UInt8.h"
-#include <pb_msgs/utils.h>
 #include <radar_driver/Radar_Target.h>
 #include <radar_driver/Radar_State_Cfg.h>
+#include <pb_msgs/candata_pb.pb.h>
+#include <polyx_nodea/CorrectedIMU.h>
+#include <string>
+#include <algorithm>
 
 /**
  * @namespace radar_driver
@@ -57,22 +60,31 @@ private:
     void DecodeRadarState(const CanFrame &frame);
     void DecodeFilterCfgHeader(const CanFrame &frame);
     void DecodeFilterCfg(const CanFrame &frame);
-
     void DecodeSoftVersionId(const CanFrame &frame);
-
+    
+    // 
+    void Combine2TrackArray();
     // Encode msg 
     void EncodeMsgCallback_RadarCfg(const radar_driver::Conti_radar_config &msg);
     void EncodeMsgCallback_FilterCfg(const radar_driver::Conti_filter_config &msg);
     void EncodeMsgCallback_Motion(const candata_msgs_pb::CANData &msg);
+    void EncodeMsgCallback_Yawrate(const polyx_nodea::CorrectedIMU &imu_data);
+
     //used for encoding in frame id 16
     //int motion_control_counter_ = 0;
 
+    // Output Mode
+    stds::string output_mode;
+
     //Ros can msg
-    radar_driver::Radar_Target can_msg_radar_target_;
+    radar_driver::Radar_Target radar_target_;
+    radar_driver::RadarTrackArray can_msg_radar_track_array;
     radar_driver::Radar_State_Cfg can_msg_radar_state_cfg;
     bool radar_target_start_update_;
     bool radar_target_end_update_;
     bool radar_state_update_;
+    bool speed_update_;
+    bool yawrate_update_;
 
     conti_ars408_obj_0_status_t obj_0_status_; 
     conti_ars408_obj_1_general_t obj_1_general_;
@@ -87,6 +99,11 @@ private:
     conti_ars408_filter_state_header_t filter_state_header_;
     conti_ars408_filter_state_cfg_t filter_state_cfg_;
     
+
+    // Define can_frame for speed and yaw_rate send at the same time
+    CanFrame frame_speed, frame_yawrate;
+    struct conti_ars408_speed_information_t cmd_speed_;
+    struct conti_ars408_yaw_rate_information_t cmd_yawrate_;
     //Ros can msg
     // Can decode&encode msg define 
     //DISALLOW_COPY_AND_ASSIGN(ContiController);

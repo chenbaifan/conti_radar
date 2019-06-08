@@ -1,6 +1,7 @@
 #include "conti_ars408_controller.h"
 #include <radar_driver/Radar_Target.h>
 #include <radar_driver/Radar_State_Cfg.h>
+#inclContiController::ude <pb_msgs/utils.h>
 
 #include "can_interface/kvaser_interface.h"
 
@@ -18,14 +19,18 @@ void ContiController::init(ros::NodeHandle &nh) {
     radar_target_start_update_ = false;
     radar_target_end_update_ = false;
     radar_state_update_ = false;    
+    speed_update_ = false;
+    yawrate_update_ = false;
     // Decode can_msg to ros_msg
-    can_target_ = nh.advertise<radar_driver::Radar_Target>("driver/radar/conti/radar_target",1);
+    can_radar_trackarray_ = nh.advertise<radar_driver::RadarTrackArray>("/driver/radar/conti/radar_target",1);
     can_radar_state_ = nh.advertise<radar_driver::Radar_State_Cfg>("/driver/radar/conti/radar_state",1);
     // Encode ros_msg to can_msg
     can_cmd_radar_cfg_ = nh.subscribe("/Perception/radar/radar_cfg", 100,
                             &ContiController::EncodeMsgCallback_RadarCfg, this);
     can_cmd_motion_ = nh.subscribe("/vehicle/canFeedback", 100,
                             &ContiController::EncodeMsgCallback_Motion, this);
+    can_cmd_yawrate_ = nh.subscribe("/polyx_correctedIMU", 100,
+                            &ContiController::EncodeMsgCallback_Yawrate, this);
 
     can_recv_thread_.reset(new std::thread([this] { RecvThreadFunc(); }));
 }
@@ -54,6 +59,7 @@ void ContiController::DecodeMsgPublish(const CanFrame &frame) {
         case 1536:
             DecodeClusterStatus(frame);
             radar_target_start_update_ = true;
+            output_mode = "Object";
             break;
 
         // CAN frame 701 (1793) : cluster general information 
@@ -73,6 +79,7 @@ void ContiController::DecodeMsgPublish(const CanFrame &frame) {
         case 1546:
             DecodeObjectStatus(frame);
             radar_target_start_update_ = true;
+            output_mode = "Cluster";
             break;
 
         // CAN frame id 60B (1547) : object general information 
@@ -112,41 +119,59 @@ void ContiController::DecodeMsgPublish(const CanFrame &frame) {
             break;
     }
     // publish when frame 32 and 35 both update at least once
-    if (radar_target_start_update_ && radar_target_end_update_ && can_msg_radar_target_.objs_extended.size() == can_msg_radar_target_.objs_general.size()){
+    if (radar_target_start_update_ && radar_target_end_update_ && radar_target_.objs_extended.size() == radar_target_.objs_general.size()){
         radar_target_start_update_ = false;
         radar_target_end_update_ = false;
-        can_msg_radar_target_.header.stamp = ros::Time::now();
-        can_msg_radar_target_.header.frame_id = param_.radar_model;
-        can_target_.publish(can_msg_radar_target_);
+        ContiController::Combine2TrackArray();
+        can_msg_radar_track_array.header.stamp = ros::Time::now();
+        can_msg_radar_track_array.header.frame_id = "radar";
+        can_radar_trackarray_.publish(can_msg_radar_track_array);
     }
     if (radar_state_update_){
         radar_state_update_ = false;
         can_msg_radar_state_cfg.header.stamp = ros::Time::now();
-        can_msg_radar_state_cfg.header.frame_id = param_.radar_model;
+        can_msg_radar_state_cfg.header.frame_id = "radar";
         can_radar_state_.publish(can_msg_radar_state_cfg);
     }
     
 }
 
+void ContiController::Combine2TrackArray(){
+    /*
+    if (radar_target_.objs_general.size() == 0 && radar_target_.cluster_general.size() > 0){
+        int i = 0;
+        for ( i ; i < radar_target_.cluster_general.size(); i++){
+            radar_driver::RadarTrack track_temp;
+            
+        }
+    }else if (radar_target_.objs_general.size() > 0 && radar_target_.cluster_general.size() == 0){
+
+    }else if (radar_target_.objs_general.size() == 0 && radar_target_.cluster_general.size() == 0){
+
+    }else {
+
+    }
+     */
+}
 
 
 void ContiController::DecodeObjectStatus(const CanFrame &frame){
     conti_ars408_obj_0_status_unpack(&obj_0_status_, frame.data, sizeof(frame.data));    
     if (conti_ars408_obj_0_status_obj_nof_objects_is_in_range(obj_0_status_.obj_nof_objects)){
-        can_msg_radar_target_.objs_status.NofObjects = 
+        radar_target_.objs_status.NofObjects = 
         conti_ars408_obj_0_status_obj_nof_objects_decode(obj_0_status_.obj_nof_objects);
     }
     if (conti_ars408_obj_0_status_obj_meas_counter_is_in_range(obj_0_status_.obj_meas_counter)){
-        can_msg_radar_target_.objs_status.MeasCounter = 
+        radar_target_.objs_status.MeasCounter = 
         conti_ars408_obj_0_status_obj_meas_counter_decode(obj_0_status_.obj_meas_counter);
     }
     if (conti_ars408_obj_0_status_obj_interface_version_is_in_range(obj_0_status_.obj_interface_version)){
-        can_msg_radar_target_.objs_status.InterfaceVersion = 
+        radar_target_.objs_status.InterfaceVersion = 
         conti_ars408_obj_0_status_obj_interface_version_decode(obj_0_status_.obj_interface_version);
     }
-    can_msg_radar_target_.objs_general.resize(0);
-    can_msg_radar_target_.objs_quality.resize(0);
-    can_msg_radar_target_.objs_extended.resize(0);
+    radar_target_.objs_general.resize(0);
+    radar_target_.objs_quality.resize(0);
+    radar_target_.objs_extended.resize(0);
 }
 
 void ContiController::DecodeObjectGeneral(const CanFrame &frame){
@@ -179,8 +204,8 @@ void ContiController::DecodeObjectGeneral(const CanFrame &frame){
         obj_temp.RCS = 
         conti_ars408_obj_1_general_obj_rcs_decode(obj_1_general_.obj_rcs);
     }
-    can_msg_radar_target_.objs_general.push_back(obj_temp);
-    //std::cout << "Object general information: " << std::to_string(can_msg_radar_target_.objs_general.back().DistLong) << std::endl;
+    radar_target_.objs_general.push_back(obj_temp);
+    //std::cout << "Object general information: " << std::to_string(radar_target_.objs_general.back().DistLong) << std::endl;
 }
 
 void ContiController::DecodeObjectQuality(const CanFrame &frame){
@@ -226,7 +251,7 @@ void ContiController::DecodeObjectQuality(const CanFrame &frame){
         quality_temp.ProbOfExist = 
         conti_ars408_obj_2_quality_obj_prob_of_exist_decode(obj_2_quality_.obj_prob_of_exist);
     }
-    can_msg_radar_target_.objs_quality.push_back(quality_temp);
+    radar_target_.objs_quality.push_back(quality_temp);
 }
 
 void ContiController::DecodeObjectExtended(const CanFrame &frame){
@@ -260,25 +285,25 @@ void ContiController::DecodeObjectExtended(const CanFrame &frame){
         extended_temp.Width = 
         conti_ars408_obj_3_extended_obj_width_decode(obj_3_extended_.obj_width);
     }
-    can_msg_radar_target_.objs_extended.push_back(extended_temp);
+    radar_target_.objs_extended.push_back(extended_temp);
 }
 
 void ContiController::DecodeClusterStatus(const CanFrame &frame){
     conti_ars408_cluster_0_status_unpack(&cluster_0_status_, frame.data, sizeof(frame.data));
     if (conti_ars408_cluster_0_status_cluster_nof_clusters_near_is_in_range(cluster_0_status_.cluster_nof_clusters_near)){
-        can_msg_radar_target_.cluster_status.NofClusterNear = 
+        radar_target_.cluster_status.NofClusterNear = 
         conti_ars408_cluster_0_status_cluster_nof_clusters_near_decode(cluster_0_status_.cluster_nof_clusters_near);
     }
     if (conti_ars408_cluster_0_status_cluster_nof_clusters_far_is_in_range(cluster_0_status_.cluster_nof_clusters_far)){
-        can_msg_radar_target_.cluster_status.NofClusterFar = 
+        radar_target_.cluster_status.NofClusterFar = 
         conti_ars408_cluster_0_status_cluster_nof_clusters_far_decode(cluster_0_status_.cluster_nof_clusters_far);
     }
     if (conti_ars408_cluster_0_status_cluster_meas_counter_is_in_range(cluster_0_status_.cluster_meas_counter)){
-        can_msg_radar_target_.cluster_status.MeasCounter = 
+        radar_target_.cluster_status.MeasCounter = 
         conti_ars408_cluster_0_status_cluster_meas_counter_decode(cluster_0_status_.cluster_meas_counter);
     }
     if (conti_ars408_cluster_0_status_cluster_interface_version_is_in_range(cluster_0_status_.cluster_interface_version)){
-        can_msg_radar_target_.cluster_status.InterfaceVersion = 
+        radar_target_.cluster_status.InterfaceVersion = 
         conti_ars408_cluster_0_status_cluster_interface_version_decode(cluster_0_status_.cluster_interface_version);
     }
 }
@@ -307,7 +332,7 @@ void ContiController::DecodeClusterGeneral(const CanFrame &frame){
     if (conti_ars408_cluster_1_general_cluster_rcs_is_in_range(cluster_1_general_.cluster_rcs)){
         general_temp.RCS = conti_ars408_cluster_1_general_cluster_rcs_decode(cluster_1_general_.cluster_rcs);
     }
-    can_msg_radar_target_.cluster_general.push_back(general_temp);
+    radar_target_.cluster_general.push_back(general_temp);
 }
 
 void ContiController::DecodeClusterQuality(const CanFrame &frame){
@@ -337,7 +362,7 @@ void ContiController::DecodeClusterQuality(const CanFrame &frame){
     if (conti_ars408_cluster_2_quality_cluster_invalid_state_is_in_range(cluster_2_quality_.cluster_invalid_state)){
         quality_temp.InvalidState = conti_ars408_cluster_2_quality_cluster_invalid_state_decode(cluster_2_quality_.cluster_invalid_state);
     }
-    can_msg_radar_target_.cluster_quality.push_back(quality_temp);
+    radar_target_.cluster_quality.push_back(quality_temp);
 }
     
 
@@ -428,139 +453,139 @@ void ContiController::DecodeFilterCfgHeader(const CanFrame &frame){
 
 void ContiController::DecodeFilterCfg(const CanFrame &frame){
     conti_ars408_filter_state_cfg_unpack(&filter_state_cfg_, frame.data, sizeof(frame.data));
-    if (conti_ars408_filter_state_cfg_filter_state_active_is_in_range(filter_cfg_.filter_cfg_active)){
+    if (conti_ars408_filter_state_cfg_filter_state_active_is_in_range(filter_state_cfg_.filter_state_active)){
         can_msg_radar_state_cfg.filter_config.Active = 
-        conti_ars408_filter_state_cfg_filter_state_active_decode(filter_cfg_.filter_cfg_active);
+        conti_ars408_filter_state_cfg_filter_state_active_decode(filter_state_cfg_.filter_state_active);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_index_is_in_range(filter_cfg_.filter_cfg_index)){
+    if (conti_ars408_filter_state_cfg_filter_state_index_is_in_range(filter_state_cfg_.filter_state_index)){
         can_msg_radar_state_cfg.filter_config.Index = 
-        conti_ars408_filter_state_cfg_filter_state_index_decode(filter_cfg_.filter_cfg_index);
+        conti_ars408_filter_state_cfg_filter_state_index_decode(filter_state_cfg_.filter_state_index);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_type_is_in_range(filter_cfg_.filter_cfg_type)){
+    if (conti_ars408_filter_state_cfg_filter_state_type_is_in_range(filter_state_cfg_.filter_state_type)){
         can_msg_radar_state_cfg.filter_config.Output_Type = 
-        conti_ars408_filter_state_cfg_filter_state_type_decode(filter_cfg_.filter_cfg_type);
+        conti_ars408_filter_state_cfg_filter_state_type_decode(filter_state_cfg_.filter_state_type);
     }
     // MIN
-    if (conti_ars408_filter_state_cfg_filter_state_min_nof_obj_is_in_range(filter_cfg_.filter_cfg_min_nof_obj)){
+    if (conti_ars408_filter_state_cfg_filter_state_min_nof_obj_is_in_range(filter_state_cfg_.filter_state_min_nof_obj)){
         can_msg_radar_state_cfg.filter_config.Min_NofObj = 
-        conti_ars408_filter_state_cfg_filter_state_min_nof_obj_decode(filter_cfg_.filter_cfg_min_nof_obj);
+        conti_ars408_filter_state_cfg_filter_state_min_nof_obj_decode(filter_state_cfg_.filter_state_min_nof_obj);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_min_distance_is_in_range(filter_cfg_.filter_cfg_min_distance)){
+    if (conti_ars408_filter_state_cfg_filter_state_min_distance_is_in_range(filter_state_cfg_.filter_state_min_distance)){
         can_msg_radar_state_cfg.filter_config.Min_Distance = 
-        conti_ars408_filter_state_cfg_filter_state_min_distance_decode(filter_cfg_.filter_cfg_min_distance);
+        conti_ars408_filter_state_cfg_filter_state_min_distance_decode(filter_state_cfg_.filter_state_min_distance);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_min_azimuth_is_in_range(filter_cfg_.filter_cfg_min_azimuth)){
+    if (conti_ars408_filter_state_cfg_filter_state_min_azimuth_is_in_range(filter_state_cfg_.filter_state_min_azimuth)){
         can_msg_radar_state_cfg.filter_config.Min_Azimuth = 
-        conti_ars408_filter_state_cfg_filter_state_min_azimuth_decode(filter_cfg_.filter_cfg_min_azimuth);
+        conti_ars408_filter_state_cfg_filter_state_min_azimuth_decode(filter_state_cfg_.filter_state_min_azimuth);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_min_vrel_oncome_is_in_range(filter_cfg_.filter_cfg_min_vrel_oncome)){
+    if (conti_ars408_filter_state_cfg_filter_state_min_vrel_oncome_is_in_range(filter_state_cfg_.filter_state_min_vrel_oncome)){
         can_msg_radar_state_cfg.filter_config.Min_VrelOncome = 
-        conti_ars408_filter_state_cfg_filter_state_min_vrel_oncome_decode(filter_cfg_.filter_cfg_min_vrel_oncome);
+        conti_ars408_filter_state_cfg_filter_state_min_vrel_oncome_decode(filter_state_cfg_.filter_state_min_vrel_oncome);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_min_vrel_depart_is_in_range(filter_cfg_.filter_cfg_min_vrel_depart)){
+    if (conti_ars408_filter_state_cfg_filter_state_min_vrel_depart_is_in_range(filter_state_cfg_.filter_state_min_vrel_depart)){
         can_msg_radar_state_cfg.filter_config.Min_VrelDepart = 
-        conti_ars408_filter_state_cfg_filter_state_min_vrel_depart_decode(filter_cfg_.filter_cfg_min_vrel_depart);
+        conti_ars408_filter_state_cfg_filter_state_min_vrel_depart_decode(filter_state_cfg_.filter_state_min_vrel_depart);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_min_rcs_is_in_range(filter_cfg_.filter_cfg_min_rcs)){
+    if (conti_ars408_filter_state_cfg_filter_state_min_rcs_is_in_range(filter_state_cfg_.filter_state_min_rcs)){
         can_msg_radar_state_cfg.filter_config.Min_RCS = 
-        conti_ars408_filter_state_cfg_filter_state_min_rcs_decode(filter_cfg_.filter_cfg_min_rcs);
+        conti_ars408_filter_state_cfg_filter_state_min_rcs_decode(filter_state_cfg_.filter_state_min_rcs);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_min_lifetime_is_in_range(filter_cfg_.filter_cfg_min_lifetime)){
+    if (conti_ars408_filter_state_cfg_filter_state_min_lifetime_is_in_range(filter_state_cfg_.filter_state_min_lifetime)){
         can_msg_radar_state_cfg.filter_config.Min_Lifetime = 
-        conti_ars408_filter_state_cfg_filter_state_min_lifetime_decode(filter_cfg_.filter_cfg_min_lifetime);
+        conti_ars408_filter_state_cfg_filter_state_min_lifetime_decode(filter_state_cfg_.filter_state_min_lifetime);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_min_size_is_in_range(filter_cfg_.filter_cfg_min_size)){
+    if (conti_ars408_filter_state_cfg_filter_state_min_size_is_in_range(filter_state_cfg_.filter_state_min_size)){
         can_msg_radar_state_cfg.filter_config.Min_Size = 
-        conti_ars408_filter_state_cfg_filter_state_min_size_decode(filter_cfg_.filter_cfg_min_size);
+        conti_ars408_filter_state_cfg_filter_state_min_size_decode(filter_state_cfg_.filter_state_min_size);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_min_prob_exists_is_in_range(filter_cfg_.filter_cfg_min_prob_exists)){
+    if (conti_ars408_filter_state_cfg_filter_state_min_prob_exists_is_in_range(filter_state_cfg_.filter_state_min_prob_exists)){
         can_msg_radar_state_cfg.filter_config.Min_ProbExists = 
-        conti_ars408_filter_state_cfg_filter_state_min_prob_exists_decode(filter_cfg_.filter_cfg_min_prob_exists);
+        conti_ars408_filter_state_cfg_filter_state_min_prob_exists_decode(filter_state_cfg_.filter_state_min_prob_exists);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_min_y_is_in_range(filter_cfg_.filter_cfg_min_y)){
+    if (conti_ars408_filter_state_cfg_filter_state_min_y_is_in_range(filter_state_cfg_.filter_state_min_y)){
         can_msg_radar_state_cfg.filter_config.Min_Y = 
-        conti_ars408_filter_state_cfg_filter_state_min_y_decode(filter_cfg_.filter_cfg_min_y);
+        conti_ars408_filter_state_cfg_filter_state_min_y_decode(filter_state_cfg_.filter_state_min_y);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_min_x_is_in_range(filter_cfg_.filter_cfg_min_x)){
+    if (conti_ars408_filter_state_cfg_filter_state_min_x_is_in_range(filter_state_cfg_.filter_state_min_x)){
         can_msg_radar_state_cfg.filter_config.Min_X = 
-        conti_ars408_filter_state_cfg_filter_state_min_x_decode(filter_cfg_.filter_cfg_min_x);
+        conti_ars408_filter_state_cfg_filter_state_min_x_decode(filter_state_cfg_.filter_state_min_x);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_min_vy_left_right_is_in_range(filter_cfg_.filter_cfg_max_vy_left_right)){
+    if (conti_ars408_filter_state_cfg_filter_state_min_vy_left_right_is_in_range(filter_state_cfg_.filter_state_max_vy_left_right)){
         can_msg_radar_state_cfg.filter_config.Min_VYRightLeft = 
-        conti_ars408_filter_state_cfg_filter_state_min_vy_left_right_decode(filter_cfg_.filter_cfg_min_vy_left_right);
+        conti_ars408_filter_state_cfg_filter_state_min_vy_left_right_decode(filter_state_cfg_.filter_state_min_vy_left_right);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_min_vx_oncome_is_in_range(filter_cfg_.filter_cfg_min_vx_oncome)){
+    if (conti_ars408_filter_state_cfg_filter_state_min_vx_oncome_is_in_range(filter_state_cfg_.filter_state_min_vx_oncome)){
         can_msg_radar_state_cfg.filter_config.Min_VXOncome = 
-        conti_ars408_filter_state_cfg_filter_state_min_vx_oncome_decode(filter_cfg_.filter_cfg_min_vx_oncome);
+        conti_ars408_filter_state_cfg_filter_state_min_vx_oncome_decode(filter_state_cfg_.filter_state_min_vx_oncome);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_min_vy_right_left_is_in_range(filter_cfg_.filter_cfg_min_vy_right_left)){
+    if (conti_ars408_filter_state_cfg_filter_state_min_vy_right_left_is_in_range(filter_state_cfg_.filter_state_min_vy_right_left)){
         can_msg_radar_state_cfg.filter_config.Min_VYRightLeft = 
-        conti_ars408_filter_state_cfg_filter_state_min_vy_right_left_decode(filter_cfg_.filter_cfg_min_vy_right_left); 
+        conti_ars408_filter_state_cfg_filter_state_min_vy_right_left_decode(filter_state_cfg_.filter_state_min_vy_right_left); 
     }
-    if (conti_ars408_filter_state_cfg_filter_state_min_vx_depart_is_in_range(filter_cfg_.filter_cfg_min_vx_depart)){
+    if (conti_ars408_filter_state_cfg_filter_state_min_vx_depart_is_in_range(filter_state_cfg_.filter_state_min_vx_depart)){
         can_msg_radar_state_cfg.filter_config.Min_VXDepart = 
-        conti_ars408_filter_state_cfg_filter_state_min_vx_depart_decode(filter_cfg_.filter_cfg_min_vx_depart);
+        conti_ars408_filter_state_cfg_filter_state_min_vx_depart_decode(filter_state_cfg_.filter_state_min_vx_depart);
     }
     // MAX
-    if (conti_ars408_filter_state_cfg_filter_state_max_nof_obj_is_in_range(filter_cfg_.filter_cfg_max_nof_obj)){
+    if (conti_ars408_filter_state_cfg_filter_state_max_nof_obj_is_in_range(filter_state_cfg_.filter_state_max_nof_obj)){
         can_msg_radar_state_cfg.filter_config.Max_NofObj = 
-        conti_ars408_filter_state_cfg_filter_state_max_nof_obj_decode(filter_cfg_.filter_cfg_max_nof_obj);
+        conti_ars408_filter_state_cfg_filter_state_max_nof_obj_decode(filter_state_cfg_.filter_state_max_nof_obj);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_max_distance_is_in_range(filter_cfg_.filter_cfg_max_distance)){
+    if (conti_ars408_filter_state_cfg_filter_state_max_distance_is_in_range(filter_state_cfg_.filter_state_max_distance)){
         can_msg_radar_state_cfg.filter_config.Max_Distance = 
-        conti_ars408_filter_state_cfg_filter_state_max_distance_decode(filter_cfg_.filter_cfg_max_distance);
+        conti_ars408_filter_state_cfg_filter_state_max_distance_decode(filter_state_cfg_.filter_state_max_distance);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_max_azimuth_is_in_range(filter_cfg_.filter_cfg_max_azimuth)){
+    if (conti_ars408_filter_state_cfg_filter_state_max_azimuth_is_in_range(filter_state_cfg_.filter_state_max_azimuth)){
         can_msg_radar_state_cfg.filter_config.Max_Azimuth = 
-        conti_ars408_filter_state_cfg_filter_state_max_azimuth_decode(filter_cfg_.filter_cfg_max_azimuth);
+        conti_ars408_filter_state_cfg_filter_state_max_azimuth_decode(filter_state_cfg_.filter_state_max_azimuth);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_max_vrel_oncome_is_in_range(filter_cfg_.filter_cfg_max_vrel_oncome)){
+    if (conti_ars408_filter_state_cfg_filter_state_max_vrel_oncome_is_in_range(filter_state_cfg_.filter_state_max_vrel_oncome)){
         can_msg_radar_state_cfg.filter_config.Max_VrelOncome = 
-        conti_ars408_filter_state_cfg_filter_state_max_vrel_oncome_decode(filter_cfg_.filter_cfg_max_vrel_oncome);
+        conti_ars408_filter_state_cfg_filter_state_max_vrel_oncome_decode(filter_state_cfg_.filter_state_max_vrel_oncome);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_max_vrel_depart_is_in_range(filter_cfg_.filter_cfg_max_vrel_depart)){
+    if (conti_ars408_filter_state_cfg_filter_state_max_vrel_depart_is_in_range(filter_state_cfg_.filter_state_max_vrel_depart)){
         can_msg_radar_state_cfg.filter_config.Max_VrelDepart = 
-        conti_ars408_filter_state_cfg_filter_state_max_vrel_depart_decode(filter_cfg_.filter_cfg_max_vrel_depart);
+        conti_ars408_filter_state_cfg_filter_state_max_vrel_depart_decode(filter_state_cfg_.filter_state_max_vrel_depart);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_max_rcs_is_in_range(filter_cfg_.filter_cfg_max_rcs)){
+    if (conti_ars408_filter_state_cfg_filter_state_max_rcs_is_in_range(filter_state_cfg_.filter_state_max_rcs)){
         can_msg_radar_state_cfg.filter_config.Max_RCS = 
-        conti_ars408_filter_state_cfg_filter_state_max_rcs_decode(filter_cfg_.filter_cfg_max_rcs);
+        conti_ars408_filter_state_cfg_filter_state_max_rcs_decode(filter_state_cfg_.filter_state_max_rcs);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_max_lifetime_is_in_range(filter_cfg_.filter_cfg_max_lifetime)){
+    if (conti_ars408_filter_state_cfg_filter_state_max_lifetime_is_in_range(filter_state_cfg_.filter_state_max_lifetime)){
         can_msg_radar_state_cfg.filter_config.Max_Lifetime = 
-        conti_ars408_filter_state_cfg_filter_state_max_lifetime_decode(filter_cfg_.filter_cfg_max_lifetime);
+        conti_ars408_filter_state_cfg_filter_state_max_lifetime_decode(filter_state_cfg_.filter_state_max_lifetime);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_max_size_is_in_range(filter_cfg_.filter_cfg_max_size)){
+    if (conti_ars408_filter_state_cfg_filter_state_max_size_is_in_range(filter_state_cfg_.filter_state_max_size)){
         can_msg_radar_state_cfg.filter_config.Max_Size = 
-        conti_ars408_filter_state_cfg_filter_state_max_size_decode(filter_cfg_.filter_cfg_max_size);
+        conti_ars408_filter_state_cfg_filter_state_max_size_decode(filter_state_cfg_.filter_state_max_size);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_max_prob_exists_is_in_range(filter_cfg_.filter_cfg_max_prob_exists)){
+    if (conti_ars408_filter_state_cfg_filter_state_max_prob_exists_is_in_range(filter_state_cfg_.filter_state_max_prob_exists)){
         can_msg_radar_state_cfg.filter_config.Max_ProbExists = 
-        conti_ars408_filter_state_cfg_filter_state_max_prob_exists_decode(filter_cfg_.filter_cfg_max_prob_exists);
+        conti_ars408_filter_state_cfg_filter_state_max_prob_exists_decode(filter_state_cfg_.filter_state_max_prob_exists);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_max_y_is_in_range(filter_cfg_.filter_cfg_max_y)){
+    if (conti_ars408_filter_state_cfg_filter_state_max_y_is_in_range(filter_state_cfg_.filter_state_max_y)){
         can_msg_radar_state_cfg.filter_config.Max_Y = 
-        conti_ars408_filter_state_cfg_filter_state_max_y_decode(filter_cfg_.filter_cfg_max_y);
+        conti_ars408_filter_state_cfg_filter_state_max_y_decode(filter_state_cfg_.filter_state_max_y);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_max_x_is_in_range(filter_cfg_.filter_cfg_max_x)){
+    if (conti_ars408_filter_state_cfg_filter_state_max_x_is_in_range(filter_state_cfg_.filter_state_max_x)){
         can_msg_radar_state_cfg.filter_config.Max_X = 
-        conti_ars408_filter_state_cfg_filter_state_max_x_decode(filter_cfg_.filter_cfg_max_x);
+        conti_ars408_filter_state_cfg_filter_state_max_x_decode(filter_state_cfg_.filter_state_max_x);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_max_vy_left_right_is_in_range(filter_cfg_.filter_cfg_max_vy_left_right)){
+    if (conti_ars408_filter_state_cfg_filter_state_max_vy_left_right_is_in_range(filter_state_cfg_.filter_state_max_vy_left_right)){
         can_msg_radar_state_cfg.filter_config.Max_VYRightLeft = 
-        conti_ars408_filter_state_cfg_filter_state_max_vy_left_right_decode(filter_cfg_.filter_cfg_max_vy_left_right);
+        conti_ars408_filter_state_cfg_filter_state_max_vy_left_right_decode(filter_state_cfg_.filter_state_max_vy_left_right);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_max_vx_oncome_is_in_range(filter_cfg_.filter_cfg_max_vx_oncome)){
+    if (conti_ars408_filter_state_cfg_filter_state_max_vx_oncome_is_in_range(filter_state_cfg_.filter_state_max_vx_oncome)){
         can_msg_radar_state_cfg.filter_config.Max_VXOncome = 
-        conti_ars408_filter_state_cfg_filter_state_max_vx_oncome_decode(filter_cfg_.filter_cfg_max_vx_oncome);
+        conti_ars408_filter_state_cfg_filter_state_max_vx_oncome_decode(filter_state_cfg_.filter_state_max_vx_oncome);
     }
-    if (conti_ars408_filter_state_cfg_filter_state_max_vy_right_left_is_in_range(filter_cfg_.filter_cfg_max_vy_right_left)){
+    if (conti_ars408_filter_state_cfg_filter_state_max_vy_right_left_is_in_range(filter_state_cfg_.filter_state_max_vy_right_left)){
         can_msg_radar_state_cfg.filter_config.Max_VYRightLeft = 
-        conti_ars408_filter_state_cfg_filter_state_max_vy_right_left_decode(filter_cfg_.filter_cfg_max_vy_right_left); 
+        conti_ars408_filter_state_cfg_filter_state_max_vy_right_left_decode(filter_state_cfg_.filter_state_max_vy_right_left); 
     }
-    if (conti_ars408_filter_state_cfg_filter_state_max_vx_depart_is_in_range(filter_cfg_.filter_cfg_max_vx_depart)){
+    if (conti_ars408_filter_state_cfg_filter_state_max_vx_depart_is_in_range(filter_state_cfg_.filter_state_max_vx_depart)){
         can_msg_radar_state_cfg.filter_config.Max_VXDepart = 
-        conti_ars408_filter_state_cfg_filter_state_max_vx_depart_decode(filter_cfg_.filter_cfg_max_vx_depart);
+        conti_ars408_filter_state_cfg_filter_state_max_vx_depart_decode(filter_state_cfg_.filter_state_max_vx_depart);
     }
 }
 
@@ -574,39 +599,140 @@ void ContiController::EncodeMsgCallback_RadarCfg(const radar_driver::Conti_radar
     frame.id = 512;
 
     struct conti_ars408_radar_configuration_t cmd_RadarCfg;
-
-    cmd_RadarCfg.radar_cfg_max_distance_valid = msg.MaxDistance_valid;
-    cmd_RadarCfg.radar_cfg_max_distance = msg.MaxDistance;
-    cmd_RadarCfg.radar_cfg_sensor_id_valid = msg.SensorID_valid;
-    cmd_RadarCfg.radar_cfg_sensor_id = msg.SensorID;
-    cmd_RadarCfg.radar_cfg_radar_power_valid = msg.RadarPower_valid;
-    cmd_RadarCfg.radar_cfg_radar_power = msg.RadarPower;
-    cmd_RadarCfg.radar_cfg_output_type_valid = msg.OutputType_valid;
-    cmd_RadarCfg.radar_cfg_output_type = msg.OutputType;
-    cmd_RadarCfg.radar_cfg_send_quality_valid = msg.SendQuality_valid;
-    cmd_RadarCfg.radar_cfg_send_quality = msg.SendQuality;
-    cmd_RadarCfg.radar_cfg_send_ext_info_valid = msg.SendExtInfo_valid;
-    cmd_RadarCfg.radar_cfg_send_ext_info = msg.SendExtInfo; 
-    cmd_RadarCfg.radar_cfg_sort_index_valid = msg.SortIndex_valid;
-    cmd_RadarCfg.radar_cfg_sort_index = msg.SortIndex;
-    cmd_RadarCfg.radar_cfg_store_in_nvm_valid = msg.StoreInNVM_valid;
-    cmd_RadarCfg.radar_cfg_store_in_nvm = msg.StoreInNVM;
-    cmd_RadarCfg.radar_cfg_ctrl_relay_valid = msg.CtrlRelay_valid;
-    cmd_RadarCfg.radar_cfg_ctrl_relay = msg.CtrlRelay;
-    cmd_RadarCfg.radar_cfg_rcs_threshold_valid = msg.RCS_Threshold_valid;
-    cmd_RadarCfg.radar_cfg_rcs_threshold = msg.RCS_Threshold;
+    cmd_RadarCfg.radar_cfg_max_distance_valid = 
+        conti_ars408_radar_configuration_radar_cfg_max_distance_valid_encode(msg.MaxDistance_valid);
+    cmd_RadarCfg.radar_cfg_max_distance = 
+        conti_ars408_radar_configuration_radar_cfg_max_distance_encode(msg.MaxDistance);
+    cmd_RadarCfg.radar_cfg_sensor_id_valid = 
+        conti_ars408_radar_configuration_radar_cfg_sensor_id_valid_encode(msg.SensorID_valid);
+    cmd_RadarCfg.radar_cfg_sensor_id = 
+        conti_ars408_radar_configuration_radar_cfg_sensor_id_encode(msg.SensorID);
+    cmd_RadarCfg.radar_cfg_radar_power_valid = 
+        conti_ars408_radar_configuration_radar_cfg_radar_power_valid_encode(msg.RadarPower_valid);
+    cmd_RadarCfg.radar_cfg_radar_power = 
+        conti_ars408_radar_configuration_radar_cfg_radar_power_encode(msg.RadarPower);
+    cmd_RadarCfg.radar_cfg_output_type_valid = 
+        conti_ars408_radar_configuration_radar_cfg_output_type_valid_encode(msg.OutputType_valid);
+    cmd_RadarCfg.radar_cfg_output_type = 
+        conti_ars408_radar_configuration_radar_cfg_output_type_encode(msg.OutputType);
+    cmd_RadarCfg.radar_cfg_send_quality_valid = 
+        conti_ars408_radar_configuration_radar_cfg_send_quality_valid_encode(msg.SendQuality_valid);
+    cmd_RadarCfg.radar_cfg_send_quality = 
+        conti_ars408_radar_configuration_radar_cfg_send_quality_encode(msg.SendQuality);
+    cmd_RadarCfg.radar_cfg_send_ext_info_valid = 
+        conti_ars408_radar_configuration_radar_cfg_send_ext_info_valid_encode(msg.SendExtInfo_valid);
+    cmd_RadarCfg.radar_cfg_send_ext_info = 
+        conti_ars408_radar_configuration_radar_cfg_send_ext_info_encode(msg.SendExtInfo); 
+    cmd_RadarCfg.radar_cfg_sort_index_valid = 
+        conti_ars408_radar_configuration_radar_cfg_sort_index_valid_encode(msg.SortIndex_valid);
+    cmd_RadarCfg.radar_cfg_sort_index = 
+        conti_ars408_radar_configuration_radar_cfg_sort_index_encode(msg.SortIndex);
+    cmd_RadarCfg.radar_cfg_store_in_nvm_valid = 
+        conti_ars408_radar_configuration_radar_cfg_store_in_nvm_valid_encode(msg.StoreInNVM_valid);
+    cmd_RadarCfg.radar_cfg_store_in_nvm = 
+        conti_ars408_radar_configuration_radar_cfg_store_in_nvm_encode(msg.StoreInNVM);
+    cmd_RadarCfg.radar_cfg_ctrl_relay_valid = 
+        conti_ars408_radar_configuration_radar_cfg_ctrl_relay_valid_encode(msg.CtrlRelay_valid);
+    cmd_RadarCfg.radar_cfg_ctrl_relay = 
+        conti_ars408_radar_configuration_radar_cfg_ctrl_relay_encode(msg.CtrlRelay);
+    cmd_RadarCfg.radar_cfg_rcs_threshold_valid = 
+        conti_ars408_radar_configuration_radar_cfg_rcs_threshold_valid_encode(msg.RCS_Threshold_valid);
+    cmd_RadarCfg.radar_cfg_rcs_threshold = 
+        conti_ars408_radar_configuration_radar_cfg_rcs_threshold_encode(msg.RCS_Threshold);
     
     conti_ars408_radar_configuration_pack(frame.data, &cmd_RadarCfg, sizeof(frame.data));
     SendFunc(&frame);
 }
 
 void ContiController::EncodeMsgCallback_FilterCfg(const radar_driver::Conti_filter_config &msg){
-    ;
+    CanFrame frame;
+    frame.dlc = 8;
+    frame.id = 514;
+
+    struct conti_ars408_filter_cfg_t cmd_FilterCfg;
+    cmd_FilterCfg.filter_cfg_type = conti_ars408_filter_cfg_filter_cfg_type_encode(msg.Output_Type);
+    cmd_FilterCfg.filter_cfg_valid = conti_ars408_filter_cfg_filter_cfg_valid_encode(msg.Valid);
+    cmd_FilterCfg.filter_cfg_active = conti_ars408_filter_cfg_filter_cfg_active_encode(msg.Active);
+    cmd_FilterCfg.filter_cfg_index = conti_ars408_filter_cfg_filter_cfg_index_encode(msg.Index);
+
+    cmd_FilterCfg.filter_cfg_min_nof_obj = conti_ars408_filter_cfg_filter_cfg_min_nof_obj_encode(msg.Min_NofObj);
+    cmd_FilterCfg.filter_cfg_min_distance = conti_ars408_filter_cfg_filter_cfg_min_distance_encode(msg.Min_Distance);
+    cmd_FilterCfg.filter_cfg_min_azimuth = conti_ars408_filter_cfg_filter_cfg_min_azimuth_encode(msg.Min_Azimuth);
+    cmd_FilterCfg.filter_cfg_min_vrel_oncome = conti_ars408_filter_cfg_filter_cfg_min_vrel_oncome_encode(msg.Min_VrelOncome);
+    cmd_FilterCfg.filter_cfg_min_vrel_depart = conti_ars408_filter_cfg_filter_cfg_min_vrel_depart_encode(msg.Min_VrelDepart);
+    cmd_FilterCfg.filter_cfg_min_rcs = conti_ars408_filter_cfg_filter_cfg_min_rcs_encode(msg.Min_RCS);
+    cmd_FilterCfg.filter_cfg_min_lifetime = conti_ars408_filter_cfg_filter_cfg_min_lifetime_encode(msg.Min_Lifetime);
+    cmd_FilterCfg.filter_cfg_min_size = conti_ars408_filter_cfg_filter_cfg_min_size_encode(msg.Min_Size);
+    cmd_FilterCfg.filter_cfg_min_prob_exists = conti_ars408_filter_cfg_filter_cfg_min_prob_exists_encode(msg.Min_ProbExists);
+    cmd_FilterCfg.filter_cfg_min_y = conti_ars408_filter_cfg_filter_cfg_min_y_encode(msg.Min_Y);
+    cmd_FilterCfg.filter_cfg_min_x = conti_ars408_filter_cfg_filter_cfg_min_x_encode(msg.Min_X);
+    cmd_FilterCfg.filter_cfg_min_vy_left_right = conti_ars408_filter_cfg_filter_cfg_min_vy_left_right_encode(msg.Min_VYLeftRight);
+    cmd_FilterCfg.filter_cfg_min_vy_right_left = conti_ars408_filter_cfg_filter_cfg_min_vy_right_left_encode(msg.Min_VYRightLeft);
+    cmd_FilterCfg.filter_cfg_min_vx_oncome = conti_ars408_filter_cfg_filter_cfg_min_vx_oncome_encode(msg.Min_VXOncome);
+    cmd_FilterCfg.filter_cfg_min_vx_depart = conti_ars408_filter_cfg_filter_cfg_min_vx_depart_encode(msg.Min_VXDepart);
+
+    cmd_FilterCfg.filter_cfg_max_nof_obj = conti_ars408_filter_cfg_filter_cfg_max_nof_obj_encode(msg.Max_NofObj);
+    cmd_FilterCfg.filter_cfg_max_distance = conti_ars408_filter_cfg_filter_cfg_max_distance_encode(msg.Max_Distance);
+    cmd_FilterCfg.filter_cfg_max_azimuth = conti_ars408_filter_cfg_filter_cfg_max_azimuth_encode(msg.Max_Azimuth);
+    cmd_FilterCfg.filter_cfg_max_vrel_oncome = conti_ars408_filter_cfg_filter_cfg_max_vrel_oncome_encode(msg.Max_VrelOncome);
+    cmd_FilterCfg.filter_cfg_max_vrel_depart = conti_ars408_filter_cfg_filter_cfg_max_vrel_depart_encode(msg.Max_VrelDepart);
+    cmd_FilterCfg.filter_cfg_max_rcs = conti_ars408_filter_cfg_filter_cfg_max_rcs_encode(msg.Max_RCS);
+    cmd_FilterCfg.filter_cfg_max_lifetime = conti_ars408_filter_cfg_filter_cfg_max_lifetime_encode(msg.Max_Lifetime);
+    cmd_FilterCfg.filter_cfg_max_size = conti_ars408_filter_cfg_filter_cfg_max_size_encode(msg.Max_Size);
+    cmd_FilterCfg.filter_cfg_max_prob_exists = conti_ars408_filter_cfg_filter_cfg_max_prob_exists_encode(msg.Max_ProbExists);
+    cmd_FilterCfg.filter_cfg_max_y = conti_ars408_filter_cfg_filter_cfg_max_y_encode(msg.Max_Y);
+    cmd_FilterCfg.filter_cfg_max_x = conti_ars408_filter_cfg_filter_cfg_max_x_encode(msg.Max_X);
+    cmd_FilterCfg.filter_cfg_max_vy_left_right = conti_ars408_filter_cfg_filter_cfg_max_vy_left_right_encode(msg.Max_VYLeftRight);
+    cmd_FilterCfg.filter_cfg_max_vy_right_left = conti_ars408_filter_cfg_filter_cfg_max_vy_right_left_encode(msg.Max_VYRightLeft);
+    cmd_FilterCfg.filter_cfg_max_vx_oncome = conti_ars408_filter_cfg_filter_cfg_max_vx_oncome_encode(msg.Max_VXOncome);
+    cmd_FilterCfg.filter_cfg_max_vx_depart = conti_ars408_filter_cfg_filter_cfg_max_vx_depart_encode(msg.Max_VXDepart);
+
+    conti_ars408_filter_cfg_pack(frame.data, &cmd_FilterCfg, sizeof(frame.data));
+    SendFunc(&frame);
 }
 
-void ContiController::EncodeMsgAuxCallback_Motion(const candata_msgs_pb::CANData &msg) {
-   ;
+void ContiController::EncodeMsgCallback_Motion(const candata_msgs_pb::CANData &msg) {
+    double dir_temp;
+    static double threshold = 0.1;    
+    ContiController::frame_speed.dlc = 8;
+    ContiController::frame_speed.id = 768;
+    struct conti_ars408_speed_information_t cmd_speed_;
+    
+    if (msg.velocity() > threshold){
+        dir_temp = 1;
+    }else if (msg.velocity() < threshold){
+        dir_temp = 2;
+    }else {
+        dir_temp = 0;
+    }
+
+    cmd_speed_.radar_device_speed_direction = conti_ars408_speed_information_radar_device_speed_direction_encode(dir_temp);
+    cmd_speed_.radar_device_speed = conti_ars408_speed_information_radar_device_speed_encode(msg.velocity());
+    conti_ars408_speed_information_pack(frame_speed.data, &cmd_speed_, sizeof(frame_speed.data));
+    speed_update_ = true;
+    
+    if (speed_update_ && yawrate_update_){
+        speed_update_ = false;
+        yawrate_update_ = false;
+        SendFunc(&frame_speed);
+    }
+}
+
+void ContiController::EncodeMsgCallback_Yawrate(const polyx_nodea::CorrectedIMU &imu_data){
+    ContiController::frame_speed.dlc = 8;
+    ContiController::frame_speed.id = 769;
+    struct conti_ars408_yaw_rate_information_t cmd_yawrate_;
+
+    cmd_yawrate_.radar_device_yaw_rate = conti_ars408_yaw_rate_information_radar_device_yaw_rate_encode(imu_data.RotationRate.back());
+    conti_ars408_speed_information_pack(frame_speed.data, &cmd_speed_, sizeof(frame_speed.data));
+    yawrate_update_ = true;
+    
+    if (speed_update_ && yawrate_update_){
+        speed_update_ = false;
+        yawrate_update_ = false;
+        SendFunc(&frame_speed);
+    }
 }
 
 
-}
+} // Namespace radar_driver

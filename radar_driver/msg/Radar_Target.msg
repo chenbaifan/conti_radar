@@ -1,5 +1,6 @@
 Header                  header
 
+string 			output_mode = "Object"
 # For objs output mode 
 Conti_obj_status        objs_status 
 Conti_obj_general[]     objs_general
