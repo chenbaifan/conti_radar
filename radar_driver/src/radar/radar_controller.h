@@ -52,7 +52,7 @@ class RadarController{
         std::unique_ptr<std::thread> can_recv_thread_ = nullptr;
         
         //ros publisher
-        ros::Publisher can_target_;
+        ros::Publisher can_radar_trackarray_;
         ros::Publisher can_radar_state_;
         
         //ros Subscriber

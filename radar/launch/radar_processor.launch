@@ -1,0 +1,6 @@
+<launch>
+<arg name="radar_mode" default="object"/>
+	<node pkg="radar" type="radar_processor_node" name="radar_processor_node" output="screen">
+		<param name="radar_mode" value="$(arg radar_mode)" />
+	</node>
+</launch>

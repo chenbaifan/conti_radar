@@ -40,6 +40,8 @@ add_message_files(
   Conti_motion_rx.msg    
   Radar_Target.msg
   Radar_State_Cfg.msg
+  RadarTrack.msg
+  RadarTrackArray.msg
 )
 
 # Generate added messages and services with any dependencies listed here

@@ -6,10 +6,12 @@
 #include "std_msgs/UInt8.h"
 #include <radar_driver/Radar_Target.h>
 #include <radar_driver/Radar_State_Cfg.h>
+#include <radar_driver/RadarTrackArray.h>
 #include <pb_msgs/candata_pb.pb.h>
 #include <polyx_nodea/CorrectedIMU.h>
 #include <string>
 #include <algorithm>
+#include <ros/ros.h>
 
 /**
  * @namespace radar_driver
@@ -74,7 +76,7 @@ private:
     //int motion_control_counter_ = 0;
 
     // Output Mode
-    stds::string output_mode;
+    std::string output_mode;
 
     //Ros can msg
     radar_driver::Radar_Target radar_target_;

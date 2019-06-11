@@ -14,7 +14,7 @@ float32         track_length
 float32         track_width
 uint8           track_dist_long_rms
 uint8           track_vrel_long_rms
-uint8           track_disLat_rms
+uint8           track_dist_lat_rms
 uint8           track_vrel_lat_rms
 uint8           track_arel_lat_rms
 uint8           track_arel_long_rms

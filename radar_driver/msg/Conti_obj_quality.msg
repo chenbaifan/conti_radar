@@ -1,7 +1,7 @@
 uint8       ID
 uint8       DistLong_rms
 uint8       VrelLong_rms
-uint8       DisLat_rms
+uint8       DistLat_rms
 uint8       VrelLat_rms
 uint8       ArelLat_rms
 uint8       ArelLong_rms

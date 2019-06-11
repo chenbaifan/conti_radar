@@ -3,7 +3,6 @@
 	<arg name="can_circuit_id" default="0"/>
 	<arg name="can_bit_rate" default="500000"/>
 	<arg name="radar_model" default="conti_ars408"/>
-	<arg name="radar_mode" default="object"/>
 	<arg name="node_name" default="conti_ars408_can_node"/>
 	<node pkg="radar_driver" type="radar_controller" name="$(arg node_name)" output="screen">
 		<param name="can_hardware_id" value="$(arg can_hardware_id)" />

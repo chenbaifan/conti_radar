@@ -1,7 +1,7 @@
 #include "conti_ars408_controller.h"
 #include <radar_driver/Radar_Target.h>
 #include <radar_driver/Radar_State_Cfg.h>
-#inclContiController::ude <pb_msgs/utils.h>
+#include <pb_msgs/utils.h>
 
 #include "can_interface/kvaser_interface.h"
 
@@ -25,7 +25,7 @@ void ContiController::init(ros::NodeHandle &nh) {
     can_radar_trackarray_ = nh.advertise<radar_driver::RadarTrackArray>("/driver/radar/conti/radar_target",1);
     can_radar_state_ = nh.advertise<radar_driver::Radar_State_Cfg>("/driver/radar/conti/radar_state",1);
     // Encode ros_msg to can_msg
-    can_cmd_radar_cfg_ = nh.subscribe("/Perception/radar/radar_cfg", 100,
+    can_cmd_radar_cfg_ = nh.subscribe("/Perception/radar/radar_cfg", 1,
                             &ContiController::EncodeMsgCallback_RadarCfg, this);
     can_cmd_motion_ = nh.subscribe("/vehicle/canFeedback", 100,
                             &ContiController::EncodeMsgCallback_Motion, this);
@@ -123,35 +123,102 @@ void ContiController::DecodeMsgPublish(const CanFrame &frame) {
         radar_target_start_update_ = false;
         radar_target_end_update_ = false;
         ContiController::Combine2TrackArray();
+        if (can_msg_radar_track_array.tracks.size()>0){
+            // ROS_INFO(can_msg_radar_track_array.tracks.front().nof_objects);
+            // ROS_INFO(can_msg_radar_track_array.tracks.front().cluster_nof_near);
+            // ROS_INFO(can_msg_radar_track_array.tracks.front().cluster_nof_far);
+        }
         can_msg_radar_track_array.header.stamp = ros::Time::now();
-        can_msg_radar_track_array.header.frame_id = "radar";
+        can_msg_radar_track_array.header.frame_id = "radar_conti";
         can_radar_trackarray_.publish(can_msg_radar_track_array);
+        can_msg_radar_track_array.tracks.resize(0);
+        radar_driver::Radar_Target tmp;
+        radar_driver_ = tmp;
     }
     if (radar_state_update_){
         radar_state_update_ = false;
         can_msg_radar_state_cfg.header.stamp = ros::Time::now();
-        can_msg_radar_state_cfg.header.frame_id = "radar";
+        can_msg_radar_state_cfg.header.frame_id = "radar_conti";
         can_radar_state_.publish(can_msg_radar_state_cfg);
     }
     
 }
 
 void ContiController::Combine2TrackArray(){
-    /*
-    if (radar_target_.objs_general.size() == 0 && radar_target_.cluster_general.size() > 0){
+    std::cout << "obj_size : " << radar_target_.objs_general.size()<<std::endl;
+    std::cout << "cluster_size : " << radar_target_.cluster_general.size()<<std::endl;
+
+    if (radar_target_.objs_general.size() == 0 && radar_target_.cluster_general.size() > 0)
+    {
         int i = 0;
-        for ( i ; i < radar_target_.cluster_general.size(); i++){
+        for ( i ; i < radar_target_.cluster_general.size() && 
+                radar_target_.cluster_general[i].ID == radar_target_.cluster_quality[i].ID; i++){
+            std::cout << "Cluster output mode" << std::endl;
             radar_driver::RadarTrack track_temp;
-            
+            track_temp.cluster_nof_far = radar_target_.cluster_status.NofClusterFar;
+            track_temp.cluster_nof_near = radar_target_.cluster_status.NofClusterNear;
+            track_temp.meas_counter = radar_target_.cluster_status.MeasCounter;
+            track_temp.track_dist_long = radar_target_.cluster_general[i].DistLong;
+            track_temp.track_dist_lat = radar_target_.cluster_general[i].DistLat;
+            track_temp.track_vrel_long = radar_target_.cluster_general[i].VrelLong;
+            track_temp.track_vrel_lat = radar_target_.cluster_general[i].VrelLat;
+            track_temp.track_dyn_prop = radar_target_.cluster_general[i].DynProp;
+            track_temp.track_RCS = radar_target_.cluster_general[i].RCS;
+
+            track_temp.track_dist_long_rms = radar_target_.cluster_quality[i].DistLong_rms;
+            track_temp.track_dist_lat_rms = radar_target_.cluster_quality[i].DistLat_rms;
+            track_temp.track_vrel_long_rms = radar_target_.cluster_quality[i].VrelLong_rms;
+            track_temp.track_vrel_lat_rms = radar_target_.cluster_quality[i].VrelLat_rms;
+            track_temp.cluster_phd0 = radar_target_.cluster_quality[i].Pdh0;
+            track_temp.cluster_abvig_state = radar_target_.cluster_quality[i].AmbigState;
+            track_temp.cluster_ivalid_state = radar_target_.cluster_quality[i].InvalidState;
+
+            can_msg_radar_track_array.tracks.push_back(track_temp);
         }
-    }else if (radar_target_.objs_general.size() > 0 && radar_target_.cluster_general.size() == 0){
-
-    }else if (radar_target_.objs_general.size() == 0 && radar_target_.cluster_general.size() == 0){
-
-    }else {
 
     }
-     */
+    else if (radar_target_.objs_general.size() > 0 && radar_target_.cluster_general.size() == 0)
+    {
+        int i = 0;
+        for ( i ; i < radar_target_.objs_general.size() && 
+                radar_target_.objs_general[i].ID == radar_target_.objs_general[i].ID; i++){
+            std::cout << "Object output mode" << std::endl;
+            radar_driver::RadarTrack track_temp;
+            track_temp.nof_objects = radar_target_.objs_status.NofObjects;
+            track_temp.meas_counter = radar_target_.objs_status.MeasCounter;
+            track_temp.track_dist_long = radar_target_.objs_general[i].DistLong;
+            track_temp.track_dist_lat = radar_target_.objs_general[i].DistLat;
+            track_temp.track_vrel_long = radar_target_.objs_general[i].VrelLong;
+            track_temp.track_vrel_lat = radar_target_.objs_general[i].VrelLat;
+            track_temp.track_dyn_prop = radar_target_.objs_general[i].DynProp;
+            track_temp.track_RCS = radar_target_.objs_general[i].RCS;
+
+            track_temp.track_dist_long_rms = radar_target_.objs_quality[i].DistLong_rms;
+            track_temp.track_dist_lat_rms = radar_target_.objs_quality[i].DistLat_rms;
+            track_temp.track_vrel_long_rms = radar_target_.objs_quality[i].VrelLong_rms;
+            track_temp.track_vrel_lat_rms = radar_target_.objs_quality[i].VrelLat_rms;
+            track_temp.track_arel_long_rms = radar_target_.objs_quality[i].ArelLong_rms;
+            track_temp.track_arel_lat_rms = radar_target_.objs_quality[i].ArelLat_rms;
+            track_temp.track_orientation_rms = radar_target_.objs_quality[i].Orientation_rms;
+            track_temp.track_meas_state = radar_target_.objs_quality[i].MeasState;
+            track_temp.track_prob_ofexist = radar_target_.objs_quality[i].ProbOfExist;
+
+            track_temp.track_arel_long = radar_target_.objs_extended[i].ArelLong;
+            track_temp.track_arel_lat = radar_target_.objs_extended[i].ArelLat;
+            track_temp.track_class = radar_target_.objs_extended[i].Class;
+            track_temp.track_orientation_angle = radar_target_.objs_extended[i].OrientationAngle;
+            track_temp.track_length = radar_target_.objs_extended[i].Length;
+            track_temp.track_width = radar_target_.objs_extended[i].Width;
+
+            can_msg_radar_track_array.tracks.push_back(track_temp);
+        }
+    }
+    else if (radar_target_.objs_general.size() == 0 && radar_target_.cluster_general.size() == 0){
+            return;
+    }
+    else {
+            ROS_ERROR("Have output from both cluster and objs");
+    }
 }
 
 
@@ -224,7 +291,7 @@ void ContiController::DecodeObjectQuality(const CanFrame &frame){
         conti_ars408_obj_2_quality_obj_vrel_long_rms_decode(obj_2_quality_.obj_vrel_long_rms);
     }
     if (conti_ars408_obj_2_quality_obj_dist_lat_rms_is_in_range(obj_2_quality_.obj_dist_lat_rms)){
-        quality_temp.DisLat_rms = 
+        quality_temp.DistLat_rms = 
         conti_ars408_obj_2_quality_obj_dist_lat_rms_decode(obj_2_quality_.obj_dist_lat_rms);
     }
     if (conti_ars408_obj_2_quality_obj_vrel_lat_rms_is_in_range(obj_2_quality_.obj_vrel_lat_rms)){
@@ -348,7 +415,7 @@ void ContiController::DecodeClusterQuality(const CanFrame &frame){
         quality_temp.VrelLong_rms = conti_ars408_cluster_2_quality_cluster_vrel_long_rms_decode(cluster_2_quality_.cluster_vrel_long_rms);
     }
     if (conti_ars408_cluster_2_quality_cluster_dist_lat_rms_is_in_range(cluster_2_quality_.cluster_dist_lat_rms)){
-        quality_temp.DisLat_rms = conti_ars408_cluster_2_quality_cluster_dist_lat_rms_decode(cluster_2_quality_.cluster_dist_lat_rms);
+        quality_temp.DistLat_rms = conti_ars408_cluster_2_quality_cluster_dist_lat_rms_decode(cluster_2_quality_.cluster_dist_lat_rms);
     }
     if (conti_ars408_cluster_2_quality_cluster_pd_h0_is_in_range(cluster_2_quality_.cluster_pd_h0)){
         quality_temp.Pdh0 = conti_ars408_cluster_2_quality_cluster_pd_h0_decode(cluster_2_quality_.cluster_pd_h0);
@@ -597,7 +664,7 @@ void ContiController::EncodeMsgCallback_RadarCfg(const radar_driver::Conti_radar
     CanFrame frame;
     frame.dlc = 8;
     frame.id = 512;
-
+    std::cout << "Enter the callback of radar_config"<<std::endl;
     struct conti_ars408_radar_configuration_t cmd_RadarCfg;
     cmd_RadarCfg.radar_cfg_max_distance_valid = 
         conti_ars408_radar_configuration_radar_cfg_max_distance_valid_encode(msg.MaxDistance_valid);
