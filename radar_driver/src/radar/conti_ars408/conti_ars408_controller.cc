@@ -24,6 +24,7 @@ void ContiController::init(ros::NodeHandle &nh) {
     radar_quality_enable_ = true;
     radar_extended_enable_ = true;
     radar_output_mode_ = 1;
+    num_of_target_ = -1;
     // Decode can_msg to ros_msg
     can_radar_trackarray_ = nh.advertise<radar_driver::RadarTrackArray>("/driver/radar/conti/radar_target",1);
     can_radar_state_ = nh.advertise<radar_driver::Radar_State_Cfg>("/driver/radar/conti/radar_state",1);
@@ -61,44 +62,32 @@ void ContiController::DecodeMsgPublish(const CanFrame &frame) {
         // CAN frame 600 (1536) : cluster status information 
         case 1536:
             DecodeClusterStatus(frame);
-            // std::cout << "Have cluster status information input" << std::endl;
             radar_target_start_update_ = true;
-            // radar_target_end_update_ = false;
-            output_mode = "Object";
             break;
 
         // CAN frame 701 (1793) : cluster general information 
         case 1793:
-            // std::cout << "Have cluster general information input" << std::endl;
             if (radar_target_start_update_){
                 DecodeClusterGeneral(frame);
             }
-            // radar_target_general_update_ = true;
             break;
 
         // CAN frame 702 (1794) : cluster quality information 
         case 1794:
-            // std::cout << "Have cluster quality information input" << std::endl;
             if (radar_target_start_update_){
                 DecodeClusterQuality(frame);
             }
-            // radar_target_end_update_ = true;
             break;
-
 
         // Decode object information 
         // CAN frame id 60A (1546) : object list status 
         case 1546:
-            // std::cout << "Have object status information input" << std::endl;
             DecodeObjectStatus(frame);
             radar_target_start_update_ = true;
-            // radar_target_end_update_ = false;
-            output_mode = "Cluster";
             break;
 
         // CAN frame id 60B (1547) : object general information 
         case 1547:
-            // std::cout << "Have object general information input" << std::endl;
             if (radar_target_start_update_){
                 DecodeObjectGeneral(frame);
             }
@@ -106,7 +95,6 @@ void ContiController::DecodeMsgPublish(const CanFrame &frame) {
 
         // CAN frame id 60C (1548) : object quality information 
         case 1548:
-            // std::cout << "Have object quality information input" << std::endl;
             if (radar_target_start_update_){
                 DecodeObjectQuality(frame);
             }
@@ -114,7 +102,6 @@ void ContiController::DecodeMsgPublish(const CanFrame &frame) {
         
         // CAN frame id 60D (1549) : object extended information
         case 1549:
-            // std::cout << "Have object extended information input" << std::endl;
             if (radar_target_start_update_){
                 DecodeObjectExtended(frame);
             }
@@ -159,11 +146,10 @@ void ContiController::DecodeMsgPublish(const CanFrame &frame) {
             flag2 = radar_extended_enable_ ? (radar_target_.objs_extended.size() == num_of_target_) : flag1;
         }else if(radar_output_mode_ == 2){
             flag2 = radar_quality_enable_ ? (radar_target_.cluster_quality.size() == num_of_target_) : (radar_target_.cluster_general.size() == num_of_target_);
-
         }
-        
         if (flag2){
-            // std::cout << "flag2 : " <<  flag2 << std::endl;
+            if (radar_quality_enable_) std::cout<<"Output with quality information " << std::endl;
+            if (radar_extended_enable_) std::cout << "Output with extended information " << std::endl;
             radar_target_start_update_ = false;
             can_msg_radar_track_array.tracks.resize(0);
             ContiController::Combine2TrackArray();
@@ -174,12 +160,8 @@ void ContiController::DecodeMsgPublish(const CanFrame &frame) {
     }
     if (radar_state_update_){
         radar_state_update_ = false;
-        if (can_msg_radar_state_cfg.radar_state.SendQualityCfg == 1){
-            radar_quality_enable_ = 1;
-        }
-        if (can_msg_radar_state_cfg.radar_state.SendExtInfoCfg == 1){
-            radar_extended_enable_ = 1;
-        }
+        radar_quality_enable_ = can_msg_radar_state_cfg.radar_state.SendQualityCfg == 1 ? true : false;
+        radar_extended_enable_ = can_msg_radar_state_cfg.radar_state.SendExtInfoCfg == 1 ? true : false;
         // std::cout << "can_msg_radar_state_cfg.radar_state.OutputTypeCfg" << unsigned(can_msg_radar_state_cfg.radar_state.OutputTypeCfg) << std::endl;
         radar_output_mode_ = can_msg_radar_state_cfg.radar_state.OutputTypeCfg;
         // std::cout << "radar_output_mode_ : " << radar_output_mode_ << std::endl;
@@ -213,15 +195,15 @@ void ContiController::Combine2TrackArray(){
             track_temp.track_vrel_lat = radar_target_.cluster_general[i].VrelLat;
             track_temp.track_dyn_prop = radar_target_.cluster_general[i].DynProp;
             track_temp.track_RCS = radar_target_.cluster_general[i].RCS;
-
-            track_temp.track_dist_long_rms = radar_target_.cluster_quality[i].DistLong_rms;
-            track_temp.track_dist_lat_rms = radar_target_.cluster_quality[i].DistLat_rms;
-            track_temp.track_vrel_long_rms = radar_target_.cluster_quality[i].VrelLong_rms;
-            track_temp.track_vrel_lat_rms = radar_target_.cluster_quality[i].VrelLat_rms;
-            track_temp.cluster_phd0 = radar_target_.cluster_quality[i].Pdh0;
-            track_temp.cluster_abvig_state = radar_target_.cluster_quality[i].AmbigState;
-            track_temp.cluster_ivalid_state = radar_target_.cluster_quality[i].InvalidState;
-
+            if (radar_quality_enable_){
+                track_temp.track_dist_long_rms = radar_target_.cluster_quality[i].DistLong_rms;
+                track_temp.track_dist_lat_rms = radar_target_.cluster_quality[i].DistLat_rms;
+                track_temp.track_vrel_long_rms = radar_target_.cluster_quality[i].VrelLong_rms;
+                track_temp.track_vrel_lat_rms = radar_target_.cluster_quality[i].VrelLat_rms;
+                track_temp.cluster_phd0 = radar_target_.cluster_quality[i].Pdh0;
+                track_temp.cluster_abvig_state = radar_target_.cluster_quality[i].AmbigState;
+                track_temp.cluster_ivalid_state = radar_target_.cluster_quality[i].InvalidState;
+            }
             can_msg_radar_track_array.tracks.push_back(track_temp);
         }
 
@@ -241,23 +223,25 @@ void ContiController::Combine2TrackArray(){
             track_temp.track_vrel_lat = radar_target_.objs_general[i].VrelLat;
             track_temp.track_dyn_prop = radar_target_.objs_general[i].DynProp;
             track_temp.track_RCS = radar_target_.objs_general[i].RCS;
-
-            track_temp.track_dist_long_rms = radar_target_.objs_quality[i].DistLong_rms;
-            track_temp.track_dist_lat_rms = radar_target_.objs_quality[i].DistLat_rms;
-            track_temp.track_vrel_long_rms = radar_target_.objs_quality[i].VrelLong_rms;
-            track_temp.track_vrel_lat_rms = radar_target_.objs_quality[i].VrelLat_rms;
-            track_temp.track_arel_long_rms = radar_target_.objs_quality[i].ArelLong_rms;
-            track_temp.track_arel_lat_rms = radar_target_.objs_quality[i].ArelLat_rms;
-            track_temp.track_orientation_rms = radar_target_.objs_quality[i].Orientation_rms;
-            track_temp.track_meas_state = radar_target_.objs_quality[i].MeasState;
-            track_temp.track_prob_ofexist = radar_target_.objs_quality[i].ProbOfExist;
-
-            track_temp.track_arel_long = radar_target_.objs_extended[i].ArelLong;
-            track_temp.track_arel_lat = radar_target_.objs_extended[i].ArelLat;
-            track_temp.track_class = radar_target_.objs_extended[i].Class;
-            track_temp.track_orientation_angle = radar_target_.objs_extended[i].OrientationAngle;
-            track_temp.track_length = radar_target_.objs_extended[i].Length;
-            track_temp.track_width = radar_target_.objs_extended[i].Width;
+            if (radar_quality_enable_){
+                track_temp.track_dist_long_rms = radar_target_.objs_quality[i].DistLong_rms;
+                track_temp.track_dist_lat_rms = radar_target_.objs_quality[i].DistLat_rms;
+                track_temp.track_vrel_long_rms = radar_target_.objs_quality[i].VrelLong_rms;
+                track_temp.track_vrel_lat_rms = radar_target_.objs_quality[i].VrelLat_rms;
+                track_temp.track_arel_long_rms = radar_target_.objs_quality[i].ArelLong_rms;
+                track_temp.track_arel_lat_rms = radar_target_.objs_quality[i].ArelLat_rms;
+                track_temp.track_orientation_rms = radar_target_.objs_quality[i].Orientation_rms;
+                track_temp.track_meas_state = radar_target_.objs_quality[i].MeasState;
+                track_temp.track_prob_ofexist = radar_target_.objs_quality[i].ProbOfExist;
+            }
+            if (radar_extended_enable_){
+                track_temp.track_arel_long = radar_target_.objs_extended[i].ArelLong;
+                track_temp.track_arel_lat = radar_target_.objs_extended[i].ArelLat;
+                track_temp.track_class = radar_target_.objs_extended[i].Class;
+                track_temp.track_orientation_angle = radar_target_.objs_extended[i].OrientationAngle;
+                track_temp.track_length = radar_target_.objs_extended[i].Length;
+                track_temp.track_width = radar_target_.objs_extended[i].Width;
+            }
             can_msg_radar_track_array.tracks.push_back(track_temp);
         }
     }
