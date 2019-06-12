@@ -1,12 +1,15 @@
 #include "radar/radar_processor_node.h"
 
+namespace bfs = boost::filesystem;
+
 // Base_link is the car_frame 
 // For vehicle frame : x in along the direction of the vehicle drive 
 static ros::Time ts_ = ros::Time();
 
 
 RadarCompensater::RadarCompensater(
-        std::shared_ptr<ros::NodeHandle> nh, bool is_sim = false,
+        std::shared_ptr<ros::NodeHandle> nh, 
+        ros::NodeHandle private_nh, bool is_sim = false,
         std::string radar_topic_name = "/driver/radar/conti/radar_target",
         std::string radar_points_topic_name = "/perception/radar", 
         std::string radar_config_topic_name = "/Perception/radar/radar_cfg",
@@ -16,21 +19,9 @@ RadarCompensater::RadarCompensater(
 
 // For_Debug
         ROS_INFO("Enter the construction function");
-        nh->param("radar_mode", radar_mode_, std::string("object"));
-        radar_config_.SortIndex = 1;
-        radar_config_.MaxDistance = 260;
-        radar_config_.SensorID = 0;
-        radar_config_.RadarPower = 0;
-        radar_config_.RCS_Threshold = 1;
-        radar_config_.SendQuality = true;
-        radar_config_.SendExtInfo = true;
-        if (radar_mode_ == "object"){
-            radar_config_.OutputType = 1; // 0: nothing   1:object  2:cluster 
-        }else if (radar_mode_ == "cluster"){
-            radar_config_.OutputType = 2; // 0: nothing   1:object  2:cluster 
-        }
-        radar_config_.OutputType = 2;
-
+        //Using yaml to load radar parameter 
+        load_radar_config(private_nh);
+       
         // Publishers
         // Ouput of radar object in the type of object list (10 is the buffer size)
         radar_config_pub_ = 
@@ -232,6 +223,9 @@ void RadarCompensater::radar_config_callback(const radar_driver::Radar_State_Cfg
     if (!RadarCompensater::radar_configed_check(radar_state_cfg_.radar_state)){
         radar_config_.header.stamp = ros::Time::now();
         radar_config_pub_.publish(radar_config_);
+        ROS_INFO("Changing radar config");
+    }else{
+        ROS_DEBUG_ONCE("Config radar success!");
     }
 };
 
@@ -272,13 +266,44 @@ bool RadarCompensater::radar_configed_check(const radar_driver::Conti_radar_stat
     return temp_flag;   
 }
 
+
+void RadarCompensater::load_radar_config(ros::NodeHandle private_nh){
+    std::string radar_config_path_;
+    radar_config_.SortIndex = 1;
+    radar_config_.MaxDistance = 260;
+    radar_config_.SensorID = 0;
+    radar_config_.RadarPower = 0;
+    radar_config_.RCS_Threshold = 1;
+    radar_config_.SendQuality = true;
+    radar_config_.SendExtInfo = true;
+    radar_config_.OutputType = 1; // 0: nothing   1:object  2:cluster 
+    if (private_nh.getParam("radar_config_file", radar_config_path_)){
+        // std::cout << radar_config_path_ << std::endl;
+        ROS_INFO("Get the path of radar config file");
+        YAML::Node radar_config = YAML::LoadFile(radar_config_path_);
+        radar_config_.SortIndex = radar_config["SortIndex"].as<int>();
+        radar_config_.MaxDistance = radar_config["MaxDistance"].as<int>();
+        radar_config_.SensorID = radar_config["SensorID"].as<int>();
+        radar_config_.RadarPower = radar_config["RadarPower"].as<int>();
+        radar_config_.RCS_Threshold = radar_config["RCS_Threshold"].as<int>();
+        radar_config_.SendQuality = radar_config["SendQuality"].as<bool>();
+        radar_config_.SendExtInfo = radar_config["SendExtInfo"].as<bool>();
+        radar_config_.OutputType = radar_config["OutputType"].as<int>(); // 0: nothing   1:object  2:cluster 
+        ROS_INFO("Success load radar config file");
+    }else{
+        ROS_WARN("Can not load radar config");
+    }
+    // std::cout << "Radar_config ::  MaxDistance :" << radar_config_.MaxDistance << std::endl;
+    std::cout << "Radar_config ::  ExtendedInfo :" << bool(radar_config_.SendExtInfo) << std::endl;
+}
+
+
 int main(int argc, char** argv) {
     ROS_INFO("Radar signal process");
     ros::init(argc, argv, "radar_processor_node");
     std::shared_ptr<ros::NodeHandle> n = std::make_shared<ros::NodeHandle>();
-//   ros::NodeHandle nh("radar_processor");
-//   ros::NodeHandle private_nh("~");
-    RadarCompensater compensater(n);
+    ros::NodeHandle private_nh("~");
+    RadarCompensater compensater(n, private_nh);
     ros::spin();
     return 0;
 }

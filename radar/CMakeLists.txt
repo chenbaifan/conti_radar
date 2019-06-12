@@ -19,6 +19,8 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_geometry_msgs
   custom_msgs
   common
+  yaml-cpp
+  REQUIRED
 )
 
 
@@ -48,10 +50,11 @@ include_directories(
   include/
   src/
   ${catkin_INCLUDE_DIRS}
+  ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 add_executable(radar_processor_node src/radar_processor_node.cc)
 add_dependencies(radar_processor_node  ${catkin_EXPORTED_TARGETS})
-target_link_libraries(radar_processor_node ${catkin_LIBRARIES} ${PROTOBUF_LIBRARIES} )
+target_link_libraries(radar_processor_node ${catkin_LIBRARIES} ${PROTOBUF_LIBRARIES} yaml-cpp)
 
 
 #############
@@ -70,7 +73,8 @@ install(TARGETS radar_processor_node
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
-install(DIRECTORY launch
+install(DIRECTORY launch config
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
+
 

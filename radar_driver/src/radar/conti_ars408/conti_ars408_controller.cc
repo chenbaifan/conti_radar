@@ -21,6 +21,9 @@ void ContiController::init(ros::NodeHandle &nh) {
     radar_state_update_ = false;    
     speed_update_ = false;
     yawrate_update_ = false;
+    radar_quality_enable_ = true;
+    radar_extended_enable_ = true;
+    radar_output_mode_ = 1;
     // Decode can_msg to ros_msg
     can_radar_trackarray_ = nh.advertise<radar_driver::RadarTrackArray>("/driver/radar/conti/radar_target",1);
     can_radar_state_ = nh.advertise<radar_driver::Radar_State_Cfg>("/driver/radar/conti/radar_state",1);
@@ -58,44 +61,64 @@ void ContiController::DecodeMsgPublish(const CanFrame &frame) {
         // CAN frame 600 (1536) : cluster status information 
         case 1536:
             DecodeClusterStatus(frame);
+            // std::cout << "Have cluster status information input" << std::endl;
             radar_target_start_update_ = true;
+            // radar_target_end_update_ = false;
             output_mode = "Object";
             break;
 
         // CAN frame 701 (1793) : cluster general information 
         case 1793:
-            DecodeClusterGeneral(frame);
+            // std::cout << "Have cluster general information input" << std::endl;
+            if (radar_target_start_update_){
+                DecodeClusterGeneral(frame);
+            }
+            // radar_target_general_update_ = true;
             break;
 
         // CAN frame 702 (1794) : cluster quality information 
         case 1794:
-            DecodeClusterQuality(frame);
-            radar_target_end_update_ = true;
+            // std::cout << "Have cluster quality information input" << std::endl;
+            if (radar_target_start_update_){
+                DecodeClusterQuality(frame);
+            }
+            // radar_target_end_update_ = true;
             break;
 
 
         // Decode object information 
         // CAN frame id 60A (1546) : object list status 
         case 1546:
+            // std::cout << "Have object status information input" << std::endl;
             DecodeObjectStatus(frame);
             radar_target_start_update_ = true;
+            // radar_target_end_update_ = false;
             output_mode = "Cluster";
             break;
 
         // CAN frame id 60B (1547) : object general information 
         case 1547:
-            DecodeObjectGeneral(frame);
+            // std::cout << "Have object general information input" << std::endl;
+            if (radar_target_start_update_){
+                DecodeObjectGeneral(frame);
+            }
             break;
 
         // CAN frame id 60C (1548) : object quality information 
         case 1548:
-            DecodeObjectQuality(frame);
+            // std::cout << "Have object quality information input" << std::endl;
+            if (radar_target_start_update_){
+                DecodeObjectQuality(frame);
+            }
             break;
         
         // CAN frame id 60D (1549) : object extended information
         case 1549:
-            DecodeObjectExtended(frame);
-            radar_target_end_update_ = true;
+            // std::cout << "Have object extended information input" << std::endl;
+            if (radar_target_start_update_){
+                DecodeObjectExtended(frame);
+            }
+            // radar_target_end_update_ = true;
             break;
 
 
@@ -119,33 +142,59 @@ void ContiController::DecodeMsgPublish(const CanFrame &frame) {
             break;
     }
     // publish when frame 32 and 35 both update at least once
-    if (radar_target_start_update_ && radar_target_end_update_ && radar_target_.objs_extended.size() == radar_target_.objs_general.size()){
-        radar_target_start_update_ = false;
-        radar_target_end_update_ = false;
-        ContiController::Combine2TrackArray();
-        if (can_msg_radar_track_array.tracks.size()>0){
-            // ROS_INFO(can_msg_radar_track_array.tracks.front().nof_objects);
-            // ROS_INFO(can_msg_radar_track_array.tracks.front().cluster_nof_near);
-            // ROS_INFO(can_msg_radar_track_array.tracks.front().cluster_nof_far);
+    bool flag1 = false, flag2 = false;
+    if (radar_target_start_update_){
+        
+        // std::cout << "radar_output_mode_ : " << radar_output_mode_ << std::endl;
+        // std::cout << "radar_target_start_update_ : " << radar_target_start_update_<< std::endl;
+        // std::cout << "num_of_target_ : "<<num_of_target_ << std::endl;
+        // std::cout << "radar_target_.objs_general.size() : "<<radar_target_.objs_general.size() << std::endl;  
+        // std::cout << "radar_target_.objs_quality.size() : "<<radar_target_.objs_quality.size() << std::endl; 
+        // std::cout << "radar_target_.objs_extended.size() : "<<radar_target_.objs_extended.size() << std::endl; 
+        // std::cout << "radar_target_.cluster_quality.size() : " << radar_target_.cluster_quality.size() << std::endl;
+        // std::cout << "radar_target_.cluster_general.size() : " << radar_target_.cluster_general.size() << std::endl;
+         
+        if (radar_output_mode_ == 1){
+            flag1 = radar_quality_enable_ ? (radar_target_.objs_quality.size() == num_of_target_) : (radar_target_.objs_general.size() == num_of_target_); 
+            flag2 = radar_extended_enable_ ? (radar_target_.objs_extended.size() == num_of_target_) : flag1;
+        }else if(radar_output_mode_ == 2){
+            flag2 = radar_quality_enable_ ? (radar_target_.cluster_quality.size() == num_of_target_) : (radar_target_.cluster_general.size() == num_of_target_);
+
         }
-        can_msg_radar_track_array.header.stamp = ros::Time::now();
-        can_msg_radar_track_array.header.frame_id = "radar_conti";
-        can_radar_trackarray_.publish(can_msg_radar_track_array);
-        can_msg_radar_track_array.tracks.resize(0);
-        radar_driver::Radar_Target tmp;
-        radar_driver_ = tmp;
+        
+        if (flag2){
+            // std::cout << "flag2 : " <<  flag2 << std::endl;
+            radar_target_start_update_ = false;
+            can_msg_radar_track_array.tracks.resize(0);
+            ContiController::Combine2TrackArray();
+            can_msg_radar_track_array.header.stamp = ros::Time::now();
+            can_msg_radar_track_array.header.frame_id = "radar_conti";
+            can_radar_trackarray_.publish(can_msg_radar_track_array);
+        }
     }
     if (radar_state_update_){
         radar_state_update_ = false;
+        if (can_msg_radar_state_cfg.radar_state.SendQualityCfg == 1){
+            radar_quality_enable_ = 1;
+        }
+        if (can_msg_radar_state_cfg.radar_state.SendExtInfoCfg == 1){
+            radar_extended_enable_ = 1;
+        }
+        // std::cout << "can_msg_radar_state_cfg.radar_state.OutputTypeCfg" << unsigned(can_msg_radar_state_cfg.radar_state.OutputTypeCfg) << std::endl;
+        radar_output_mode_ = can_msg_radar_state_cfg.radar_state.OutputTypeCfg;
+        // std::cout << "radar_output_mode_ : " << radar_output_mode_ << std::endl;
+        // std::cout<< "radar_quality_enable_ : " << radar_quality_enable_ <<std::endl;
+        // std::cout<< "radar_extended_enable_ : " << radar_extended_enable_ <<std::endl;
+        // std::cout<< "radar_output_mode_ : " << radar_output_mode_ <<std::endl;
         can_msg_radar_state_cfg.header.stamp = ros::Time::now();
         can_msg_radar_state_cfg.header.frame_id = "radar_conti";
         can_radar_state_.publish(can_msg_radar_state_cfg);
     }
-    
 }
 
 void ContiController::Combine2TrackArray(){
-    std::cout << "obj_size : " << radar_target_.objs_general.size()<<std::endl;
+    
+    std::cout << "\nobj_size : " << radar_target_.objs_general.size()<<std::endl;
     std::cout << "cluster_size : " << radar_target_.cluster_general.size()<<std::endl;
 
     if (radar_target_.objs_general.size() == 0 && radar_target_.cluster_general.size() > 0)
@@ -153,7 +202,7 @@ void ContiController::Combine2TrackArray(){
         int i = 0;
         for ( i ; i < radar_target_.cluster_general.size() && 
                 radar_target_.cluster_general[i].ID == radar_target_.cluster_quality[i].ID; i++){
-            std::cout << "Cluster output mode" << std::endl;
+            // std::cout << "Cluster output mode" << std::endl;
             radar_driver::RadarTrack track_temp;
             track_temp.cluster_nof_far = radar_target_.cluster_status.NofClusterFar;
             track_temp.cluster_nof_near = radar_target_.cluster_status.NofClusterNear;
@@ -182,7 +231,7 @@ void ContiController::Combine2TrackArray(){
         int i = 0;
         for ( i ; i < radar_target_.objs_general.size() && 
                 radar_target_.objs_general[i].ID == radar_target_.objs_general[i].ID; i++){
-            std::cout << "Object output mode" << std::endl;
+            // std::cout << "Object output mode" << std::endl;
             radar_driver::RadarTrack track_temp;
             track_temp.nof_objects = radar_target_.objs_status.NofObjects;
             track_temp.meas_counter = radar_target_.objs_status.MeasCounter;
@@ -209,7 +258,6 @@ void ContiController::Combine2TrackArray(){
             track_temp.track_orientation_angle = radar_target_.objs_extended[i].OrientationAngle;
             track_temp.track_length = radar_target_.objs_extended[i].Length;
             track_temp.track_width = radar_target_.objs_extended[i].Width;
-
             can_msg_radar_track_array.tracks.push_back(track_temp);
         }
     }
@@ -236,9 +284,9 @@ void ContiController::DecodeObjectStatus(const CanFrame &frame){
         radar_target_.objs_status.InterfaceVersion = 
         conti_ars408_obj_0_status_obj_interface_version_decode(obj_0_status_.obj_interface_version);
     }
-    radar_target_.objs_general.resize(0);
-    radar_target_.objs_quality.resize(0);
-    radar_target_.objs_extended.resize(0);
+    num_of_target_ = radar_target_.objs_status.NofObjects;
+    radar_driver::Radar_Target tmp;
+    radar_target_ = tmp;
 }
 
 void ContiController::DecodeObjectGeneral(const CanFrame &frame){
@@ -373,6 +421,9 @@ void ContiController::DecodeClusterStatus(const CanFrame &frame){
         radar_target_.cluster_status.InterfaceVersion = 
         conti_ars408_cluster_0_status_cluster_interface_version_decode(cluster_0_status_.cluster_interface_version);
     }
+    num_of_target_ = radar_target_.cluster_status.NofClusterNear + radar_target_.cluster_status.NofClusterFar;
+    radar_driver::Radar_Target tmp;
+    radar_target_ = tmp;
 }
 
 void ContiController::DecodeClusterGeneral(const CanFrame &frame){
@@ -657,14 +708,11 @@ void ContiController::DecodeFilterCfg(const CanFrame &frame){
 }
 
 
-
-
-
 void ContiController::EncodeMsgCallback_RadarCfg(const radar_driver::Conti_radar_config &msg) {
     CanFrame frame;
     frame.dlc = 8;
     frame.id = 512;
-    std::cout << "Enter the callback of radar_config"<<std::endl;
+    // std::cout << "Enter the callback of radar_config"<<std::endl;
     struct conti_ars408_radar_configuration_t cmd_RadarCfg;
     cmd_RadarCfg.radar_cfg_max_distance_valid = 
         conti_ars408_radar_configuration_radar_cfg_max_distance_valid_encode(msg.MaxDistance_valid);
@@ -706,9 +754,12 @@ void ContiController::EncodeMsgCallback_RadarCfg(const radar_driver::Conti_radar
         conti_ars408_radar_configuration_radar_cfg_rcs_threshold_valid_encode(msg.RCS_Threshold_valid);
     cmd_RadarCfg.radar_cfg_rcs_threshold = 
         conti_ars408_radar_configuration_radar_cfg_rcs_threshold_encode(msg.RCS_Threshold);
+    // std::cout << "cmd_RadarCfg has been prepared"<<std::endl;
     
     conti_ars408_radar_configuration_pack(frame.data, &cmd_RadarCfg, sizeof(frame.data));
     SendFunc(&frame);
+    // std::cout << "sent radar config can msg"<<std::endl;
+    
 }
 
 void ContiController::EncodeMsgCallback_FilterCfg(const radar_driver::Conti_filter_config &msg){
@@ -772,7 +823,6 @@ void ContiController::EncodeMsgCallback_Motion(const candata_msgs_pb::CANData &m
     }else {
         dir_temp = 0;
     }
-
     cmd_speed_.radar_device_speed_direction = conti_ars408_speed_information_radar_device_speed_direction_encode(dir_temp);
     cmd_speed_.radar_device_speed = conti_ars408_speed_information_radar_device_speed_encode(msg.velocity());
     conti_ars408_speed_information_pack(frame_speed.data, &cmd_speed_, sizeof(frame_speed.data));

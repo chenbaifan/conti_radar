@@ -1,6 +1,6 @@
 <launch>
-<arg name="radar_mode" default="object"/>
-	<node pkg="radar" type="radar_processor_node" name="radar_processor_node" output="screen">
-		<param name="radar_mode" value="$(arg radar_mode)" />
+<arg name="radar_config_file" default = "$(find radar)/config/conti_ars408_config.yaml"/>
+	<node pkg="radar" type="radar_processor_node" name="radar_processor" output="screen">
+		<param name="radar_config_file" value="$(arg radar_config_file)" />
 	</node>
 </launch>

@@ -31,8 +31,12 @@
 #include <memory>
 #include <queue>
 #include <iostream>
+#include <yaml-cpp/yaml.h>
+#include <unistd.h>
+#include "boost/filesystem.hpp"
 
 #define PI 3.14159265
+namespace bfs = boost::filesystem;
 
 class RadarCompensater{
 private:
@@ -58,6 +62,10 @@ private:
     float x_offset = 0.0;
     float y_offset = 0.0;
 
+    // Initialize the yaml parser for radar config
+    std::string config_path;
+    
+
     custom_msgs::objectList radar_list_;
     radar_driver::Conti_radar_config radar_config_;
 
@@ -69,12 +77,11 @@ private:
     void radar_config_callback(const radar_driver::Radar_State_Cfg radar_cfg_state_);
     bool radar_configed_check(const radar_driver::Conti_radar_state radar_state_);
     void compensate_ego_motion(const std::shared_ptr<radar_driver::RadarTrackArray> detections);
-    
-
+    void load_radar_config(const ros::NodeHandle private_nh);
 public:
     RadarCompensater() = delete;
     RadarCompensater(const RadarCompensater &) = delete;
-    RadarCompensater(std::shared_ptr<ros::NodeHandle> nh, bool is_sim, std::string esr_topic_name,
+    RadarCompensater(std::shared_ptr<ros::NodeHandle> nh, ros::NodeHandle private_nh, bool is_sim, std::string esr_topic_name,
             std::string radar_points_topic_name, std::string radar_config_topic_name,
             std::string radar_config_state_topic_name);
 };

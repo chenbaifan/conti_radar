@@ -83,8 +83,13 @@ private:
     radar_driver::RadarTrackArray can_msg_radar_track_array;
     radar_driver::Radar_State_Cfg can_msg_radar_state_cfg;
     bool radar_target_start_update_;
+    bool radar_target_quality_update_;
     bool radar_target_end_update_;
     bool radar_state_update_;
+    bool radar_quality_enable_;
+    bool radar_extended_enable_;
+    int radar_output_mode_;
+    int num_of_target_;
     bool speed_update_;
     bool yawrate_update_;
 

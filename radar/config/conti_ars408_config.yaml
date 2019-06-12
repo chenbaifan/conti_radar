@@ -1,0 +1,8 @@
+SortIndex : 1
+MaxDistance : 260
+SensorID : 0
+RadarPower : 0
+RCS_Threshold : 1
+SendQuality : true
+SendExtInfo : true
+OutputType : 1  # 0: nothing   1:object  2:cluster 
