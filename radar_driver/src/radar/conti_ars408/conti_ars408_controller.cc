@@ -137,8 +137,8 @@ void ContiController::DecodeMsgPublish(const CanFrame &frame) {
             flag2 = radar_quality_enable_ ? (radar_target_.cluster_quality.size() == num_of_target_) : (radar_target_.cluster_general.size() == num_of_target_);
         }
         if (flag2){
-            if (radar_quality_enable_) std::cout<<"Output with quality information " << std::endl;
-            if (radar_extended_enable_) std::cout << "Output with extended information " << std::endl;
+            // if (radar_quality_enable_) std::cout<<"Output with quality information " << std::endl;
+            // if (radar_extended_enable_) std::cout << "Output with extended information " << std::endl;
             radar_target_start_update_ = false;
             can_msg_radar_track_array.tracks.resize(0);
             ContiController::Combine2TrackArray();
@@ -171,6 +171,7 @@ void ContiController::Combine2TrackArray(){
             track_temp.cluster_nof_far = radar_target_.cluster_status.NofClusterFar;
             track_temp.cluster_nof_near = radar_target_.cluster_status.NofClusterNear;
             track_temp.meas_counter = radar_target_.cluster_status.MeasCounter;
+            track_temp.track_ID = radar_target_.cluster_general[i].ID;
             track_temp.track_dist_long = radar_target_.cluster_general[i].DistLong;
             track_temp.track_dist_lat = radar_target_.cluster_general[i].DistLat;
             track_temp.track_vrel_long = radar_target_.cluster_general[i].VrelLong;
@@ -198,6 +199,7 @@ void ContiController::Combine2TrackArray(){
             radar_driver::RadarTrack track_temp;
             track_temp.nof_objects = radar_target_.objs_status.NofObjects;
             track_temp.meas_counter = radar_target_.objs_status.MeasCounter;
+            track_temp.track_ID = radar_target_.objs_general[i].ID;
             track_temp.track_dist_long = radar_target_.objs_general[i].DistLong;
             track_temp.track_dist_lat = radar_target_.objs_general[i].DistLat;
             track_temp.track_vrel_long = radar_target_.objs_general[i].VrelLong;
@@ -236,6 +238,8 @@ void ContiController::Combine2TrackArray(){
 
 
 void ContiController::DecodeObjectStatus(const CanFrame &frame){
+    radar_driver::Radar_Target tmp;
+    radar_target_ = tmp;
     conti_ars408_obj_0_status_unpack(&obj_0_status_, frame.data, sizeof(frame.data));    
     if (conti_ars408_obj_0_status_obj_nof_objects_is_in_range(obj_0_status_.obj_nof_objects)){
         radar_target_.objs_status.NofObjects = 
@@ -250,8 +254,6 @@ void ContiController::DecodeObjectStatus(const CanFrame &frame){
         conti_ars408_obj_0_status_obj_interface_version_decode(obj_0_status_.obj_interface_version);
     }
     num_of_target_ = radar_target_.objs_status.NofObjects;
-    radar_driver::Radar_Target tmp;
-    radar_target_ = tmp;
 }
 
 void ContiController::DecodeObjectGeneral(const CanFrame &frame){
