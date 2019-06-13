@@ -52,7 +52,11 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
-add_executable(radar_processor_node src/radar_processor_node.cc)
+add_executable(radar_processor_node 
+  src/radar_processor_node.cc 
+  src/radar_visualizer.cc
+)
+
 add_dependencies(radar_processor_node  ${catkin_EXPORTED_TARGETS})
 target_link_libraries(radar_processor_node ${catkin_LIBRARIES} ${PROTOBUF_LIBRARIES} yaml-cpp)
 

@@ -6,16 +6,17 @@ namespace bfs = boost::filesystem;
 // For vehicle frame : x in along the direction of the vehicle drive 
 static ros::Time ts_ = ros::Time();
 
+namespace radar {
 
 RadarCompensater::RadarCompensater(
         std::shared_ptr<ros::NodeHandle> nh, 
-        ros::NodeHandle private_nh, bool is_sim = false,
+        ros::NodeHandle private_nh, bool is_sim = false, bool visual_raw = false, bool visual_processed = false, 
         std::string radar_topic_name = "/driver/radar/conti/radar_target",
         std::string radar_points_topic_name = "/perception/radar", 
         std::string radar_config_topic_name = "/Perception/radar/radar_cfg",
         std::string radar_config_state_topic_name = "/driver/radar/conti/radar_state")
-: n_(nh), is_sim_(is_sim), buffer_(ros::Duration(100)), listener_(buffer_),
-    map_frame_("map"), Radar_frame_("radar_conti"), base_link_("base_link"){
+: n_(nh), is_sim_(is_sim), visual_raw_(visual_raw), visual_processed_(visual_processed), buffer_(ros::Duration(100)), 
+listener_(buffer_), map_frame_("map"), Radar_frame_("radar_conti"), base_link_("base_link"){
 
 // For_Debug
         ROS_INFO("Enter the construction function");
@@ -24,11 +25,17 @@ RadarCompensater::RadarCompensater(
        
         // Publishers
         // Ouput of radar object in the type of object list (10 is the buffer size)
-        radar_config_pub_ = 
-            nh->advertise<radar_driver::Conti_radar_config>(radar_config_topic_name, 1);
-        radar_pub_ =
-            nh->advertise<custom_msgs::objectList>(radar_points_topic_name, 10);
-
+        radar_config_pub_ = nh->advertise<radar_driver::Conti_radar_config>(radar_config_topic_name, 1);
+        radar_pub_ = nh->advertise<custom_msgs::objectList>(radar_points_topic_name, 10);
+        if (visual_raw_){
+            viz_pub_raw_ = nh->advertise<visualization_msgs::MarkerArray>(radar_points_topic_name+"_raw/rviz", 10); 
+        }
+        if (visual_processed_){
+            viz_pub_processed_ = nh->advertise<visualization_msgs::MarkerArray>(radar_points_topic_name+"_processed/rviz", 10); 
+        }
+        if (visual_raw_ || visual_processed_){
+            RadarVisualizer visualizer();
+        }
         // Subscribers
         Radar_config_state_sub_ = 
             nh->subscribe(radar_config_state_topic_name, 10, &RadarCompensater::radar_config_callback, this);
@@ -205,11 +212,19 @@ void RadarCompensater::radar_callback(
     std::shared_ptr<radar_driver::RadarTrackArray> dets = std::make_shared<radar_driver::RadarTrackArray>();
     dets->header = detections->header;
     dets->tracks = detections->tracks;
+    // Visualize the raw radar date in radar_frame
+    if (visual_raw_)
+    {
+        visualization_msgs::MarkerArray markerarray_temp_;
+        markerarray_temp_ = visualizer.Update(dets, Radar_frame_);
+        viz_pub_raw_.publish(markerarray_temp_);
+    }
     compensate_ego_motion(dets);
     ROS_DEBUG("done ego motion compensation , got %lu detections before clustering",dets->tracks.size());
     // custom_msgs::objectList radar_points = convert_to_map_frame(std::make_shared<radar_driver::RadarTrackArray>(cluster_->radar_callback(dets)));
     // custom_msgs::objectList radar_points = convert_to_map_frame(std::make_shared<radar_driver::RadarTrackArray>(dets));
     custom_msgs::objectList radar_points = convert_to_map_frame(dets);
+    
     radar_pub_.publish(radar_points);
 }
 
@@ -296,6 +311,7 @@ void RadarCompensater::load_radar_config(ros::NodeHandle private_nh){
     // std::cout << "Radar_config ::  MaxDistance :" << radar_config_.MaxDistance << std::endl;
     std::cout << "Radar_config ::  ExtendedInfo :" << bool(radar_config_.SendExtInfo) << std::endl;
 }
+} // namespace radar
 
 
 int main(int argc, char** argv) {
@@ -303,7 +319,7 @@ int main(int argc, char** argv) {
     ros::init(argc, argv, "radar_processor_node");
     std::shared_ptr<ros::NodeHandle> n = std::make_shared<ros::NodeHandle>();
     ros::NodeHandle private_nh("~");
-    RadarCompensater compensater(n, private_nh);
+    radar::RadarCompensater compensater(n, private_nh);
     ros::spin();
     return 0;
 }

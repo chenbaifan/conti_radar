@@ -34,9 +34,12 @@
 #include <yaml-cpp/yaml.h>
 #include <unistd.h>
 #include "boost/filesystem.hpp"
+#include "radar_visualizer.h"
 
 #define PI 3.14159265
 namespace bfs = boost::filesystem;
+
+namespace radar{
 
 class RadarCompensater{
 private:
@@ -46,6 +49,8 @@ private:
     ros::Subscriber Radar_config_state_sub_;
     ros::Publisher radar_pub_;
     ros::Publisher radar_config_pub_;
+    ros::Publisher viz_pub_raw_;
+    ros::Publisher viz_pub_processed_;
     //std::unique_ptr<EsrCluster> cluster_;
     std::unique_ptr<tf2_ros::MessageFilter<radar_driver::RadarTrackArray>> tf2_filter_;
 
@@ -59,11 +64,15 @@ private:
     geometry_msgs::Vector3Stamped sensor_velocity_in_Radar;
 
     bool is_sim_;
+    bool visual_raw_;
+    bool visual_processed_;
     float x_offset = 0.0;
     float y_offset = 0.0;
 
     // Initialize the yaml parser for radar config
     std::string config_path;
+
+    RadarVisualizer visualizer;
     
 
     custom_msgs::objectList radar_list_;
@@ -81,9 +90,11 @@ private:
 public:
     RadarCompensater() = delete;
     RadarCompensater(const RadarCompensater &) = delete;
-    RadarCompensater(std::shared_ptr<ros::NodeHandle> nh, ros::NodeHandle private_nh, bool is_sim, std::string esr_topic_name,
-            std::string radar_points_topic_name, std::string radar_config_topic_name,
-            std::string radar_config_state_topic_name);
+    RadarCompensater(std::shared_ptr<ros::NodeHandle> nh, ros::NodeHandle private_nh, bool is_sim, 
+            bool visual_raw, bool visual_processed, std::string esr_topic_name, std::string radar_points_topic_name, 
+            std::string radar_config_topic_name, std::string radar_config_state_topic_name);
 };
+
+} //namespace radar
 
 #endif //RADAR_PROCESSOR_NODEROS_INFO("Rec");
