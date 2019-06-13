@@ -62,7 +62,7 @@ generate_messages(
 catkin_package(
   CATKIN_DEPENDS roscpp message_runtime std_msgs message_generation
   INCLUDE_DIRS include
-  LIBRARIES kvaser_interface
+  LIBRARIES kvaser_interface_radar
 )
 
 
@@ -83,11 +83,11 @@ include_directories(
 ## CAN Interface ##
 ###################
 # Kvaser can interface
-add_library(kvaser_interface
+add_library(kvaser_interface_radar
   src/can_interface/kvaser_interface.cc
   src/can_interface/utils.cc
 )
-target_link_libraries(kvaser_interface
+target_link_libraries(kvaser_interface_radar
   canlib
   ${catkin_LIBRARIES}
 )
@@ -104,7 +104,7 @@ add_executable(radar_controller
   src/radar/conti_ars408/conti_ars408.cc
 )
 
-target_link_libraries(radar_controller kvaser_interface ${catkin_LIBRARIES} ${PROTOBUF_LIBRARIES})
+target_link_libraries(radar_controller kvaser_interface_radar ${catkin_LIBRARIES} ${PROTOBUF_LIBRARIES})
 add_dependencies(radar_controller ${catkin_EXPORTED_TARGETS})
 
 #############
@@ -122,7 +122,7 @@ install(TARGETS radar_controller
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
-install(TARGETS kvaser_interface
+install(TARGETS kvaser_interface_radar
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

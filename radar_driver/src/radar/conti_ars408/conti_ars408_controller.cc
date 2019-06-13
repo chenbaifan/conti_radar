@@ -108,7 +108,6 @@ void ContiController::DecodeMsgPublish(const CanFrame &frame) {
             // radar_target_end_update_ = true;
             break;
 
-
         // Radar state output 
         // CAN frame 201 (513) : radar state output 
         case 513:
@@ -131,16 +130,6 @@ void ContiController::DecodeMsgPublish(const CanFrame &frame) {
     // publish when frame 32 and 35 both update at least once
     bool flag1 = false, flag2 = false;
     if (radar_target_start_update_){
-        
-        // std::cout << "radar_output_mode_ : " << radar_output_mode_ << std::endl;
-        // std::cout << "radar_target_start_update_ : " << radar_target_start_update_<< std::endl;
-        // std::cout << "num_of_target_ : "<<num_of_target_ << std::endl;
-        // std::cout << "radar_target_.objs_general.size() : "<<radar_target_.objs_general.size() << std::endl;  
-        // std::cout << "radar_target_.objs_quality.size() : "<<radar_target_.objs_quality.size() << std::endl; 
-        // std::cout << "radar_target_.objs_extended.size() : "<<radar_target_.objs_extended.size() << std::endl; 
-        // std::cout << "radar_target_.cluster_quality.size() : " << radar_target_.cluster_quality.size() << std::endl;
-        // std::cout << "radar_target_.cluster_general.size() : " << radar_target_.cluster_general.size() << std::endl;
-         
         if (radar_output_mode_ == 1){
             flag1 = radar_quality_enable_ ? (radar_target_.objs_quality.size() == num_of_target_) : (radar_target_.objs_general.size() == num_of_target_); 
             flag2 = radar_extended_enable_ ? (radar_target_.objs_extended.size() == num_of_target_) : flag1;
@@ -162,12 +151,7 @@ void ContiController::DecodeMsgPublish(const CanFrame &frame) {
         radar_state_update_ = false;
         radar_quality_enable_ = can_msg_radar_state_cfg.radar_state.SendQualityCfg == 1 ? true : false;
         radar_extended_enable_ = can_msg_radar_state_cfg.radar_state.SendExtInfoCfg == 1 ? true : false;
-        // std::cout << "can_msg_radar_state_cfg.radar_state.OutputTypeCfg" << unsigned(can_msg_radar_state_cfg.radar_state.OutputTypeCfg) << std::endl;
         radar_output_mode_ = can_msg_radar_state_cfg.radar_state.OutputTypeCfg;
-        // std::cout << "radar_output_mode_ : " << radar_output_mode_ << std::endl;
-        // std::cout<< "radar_quality_enable_ : " << radar_quality_enable_ <<std::endl;
-        // std::cout<< "radar_extended_enable_ : " << radar_extended_enable_ <<std::endl;
-        // std::cout<< "radar_output_mode_ : " << radar_output_mode_ <<std::endl;
         can_msg_radar_state_cfg.header.stamp = ros::Time::now();
         can_msg_radar_state_cfg.header.frame_id = "radar_conti";
         can_radar_state_.publish(can_msg_radar_state_cfg);
@@ -178,13 +162,11 @@ void ContiController::Combine2TrackArray(){
     
     std::cout << "\nobj_size : " << radar_target_.objs_general.size()<<std::endl;
     std::cout << "cluster_size : " << radar_target_.cluster_general.size()<<std::endl;
-
     if (radar_target_.objs_general.size() == 0 && radar_target_.cluster_general.size() > 0)
     {
         int i = 0;
         for ( i ; i < radar_target_.cluster_general.size() && 
                 radar_target_.cluster_general[i].ID == radar_target_.cluster_quality[i].ID; i++){
-            // std::cout << "Cluster output mode" << std::endl;
             radar_driver::RadarTrack track_temp;
             track_temp.cluster_nof_far = radar_target_.cluster_status.NofClusterFar;
             track_temp.cluster_nof_near = radar_target_.cluster_status.NofClusterNear;
@@ -213,7 +195,6 @@ void ContiController::Combine2TrackArray(){
         int i = 0;
         for ( i ; i < radar_target_.objs_general.size() && 
                 radar_target_.objs_general[i].ID == radar_target_.objs_general[i].ID; i++){
-            // std::cout << "Object output mode" << std::endl;
             radar_driver::RadarTrack track_temp;
             track_temp.nof_objects = radar_target_.objs_status.NofObjects;
             track_temp.meas_counter = radar_target_.objs_status.MeasCounter;
