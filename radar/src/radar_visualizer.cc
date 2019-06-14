@@ -12,14 +12,16 @@ RadarVisualizer::~RadarVisualizer()
     ;
 }
 
-visualization_msgs::MarkerArray RadarVisualizer::Update(std::shared_ptr<radar_driver::RadarTrackArray> trackarray_, 
+visualization_msgs::MarkerArray RadarVisualizer::Update(const radar_driver::RadarTrackArray::ConstPtr trackarray_, 
 std::string frame_id_)
 {
+    std::cout << "Enter the update function" << std::endl;
     int i;
     visualization_msgs::MarkerArray markerarray_;
     visualization_msgs::Marker deleteall_marker;
     deleteall_marker.action = visualization_msgs::Marker::DELETEALL;    
     for (i = 0; i<trackarray_->tracks.size() ; i++){
+        std::cout << "Enter the FOR LOOP" << std::endl;
         visualization_msgs::Marker marker_;
         marker_.ns = "radar_obj";
         marker_.header.frame_id = frame_id_;
@@ -41,6 +43,7 @@ std::string frame_id_)
         marker_.text = std::to_string(trackarray_->tracks[i].track_vrel_long);
         markerarray_.markers.push_back(marker_);
     }
+    return markerarray_;
     
 }
 

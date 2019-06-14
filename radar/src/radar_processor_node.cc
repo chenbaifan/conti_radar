@@ -10,7 +10,7 @@ namespace radar {
 
 RadarCompensater::RadarCompensater(
         std::shared_ptr<ros::NodeHandle> nh, 
-        ros::NodeHandle private_nh, bool is_sim = false, bool visual_raw = false, bool visual_processed = false, 
+        ros::NodeHandle private_nh, bool is_sim = false, bool visual_raw = true, bool visual_processed = false, 
         std::string radar_topic_name = "/driver/radar/conti/radar_target",
         std::string radar_points_topic_name = "/perception/radar", 
         std::string radar_config_topic_name = "/Perception/radar/radar_cfg",
@@ -39,6 +39,7 @@ listener_(buffer_), map_frame_("map"), Radar_frame_("radar_conti"), base_link_("
         // Subscribers
         Radar_config_state_sub_ = 
             nh->subscribe(radar_config_state_topic_name, 10, &RadarCompensater::radar_config_callback, this);
+
         // Get the vehicle information 
         if (n_->hasParam("/sim")) {
             n_->getParam("/sim", is_sim_);
@@ -208,17 +209,13 @@ custom_msgs::objectList RadarCompensater::convert_to_map_frame(
 
 void RadarCompensater::radar_callback(
         const radar_driver::RadarTrackArray::ConstPtr detections) {
+    std::cout << "Enter radar callback fun" << std::endl;
     ts_ = detections->header.stamp;
     std::shared_ptr<radar_driver::RadarTrackArray> dets = std::make_shared<radar_driver::RadarTrackArray>();
     dets->header = detections->header;
     dets->tracks = detections->tracks;
-    // Visualize the raw radar date in radar_frame
-    if (visual_raw_)
-    {
-        visualization_msgs::MarkerArray markerarray_temp_;
-        markerarray_temp_ = visualizer.Update(dets, Radar_frame_);
-        viz_pub_raw_.publish(markerarray_temp_);
-    }
+    
+    
     compensate_ego_motion(dets);
     ROS_DEBUG("done ego motion compensation , got %lu detections before clustering",dets->tracks.size());
     // custom_msgs::objectList radar_points = convert_to_map_frame(std::make_shared<radar_driver::RadarTrackArray>(cluster_->radar_callback(dets)));
@@ -230,7 +227,14 @@ void RadarCompensater::radar_callback(
 
 void RadarCompensater::received_radar(const radar_driver::RadarTrackArray::ConstPtr detections) {
     // ROS_INFO("Received data from radar");
-
+    std::cout << "Enter radar callback fun" << std::endl;
+    // Visualize the raw radar date in radar_frame
+    if (visual_raw_)
+    {
+        visualization_msgs::MarkerArray markerarray_temp_;
+        markerarray_temp_ = visualizer.Update(detections, Radar_frame_);
+        viz_pub_raw_.publish(markerarray_temp_);
+    }
     tf2_filter_->add(detections);
 }
 

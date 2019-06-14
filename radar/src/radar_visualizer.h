@@ -5,6 +5,7 @@
 #include <visualization_msgs/MarkerArray.h>
 #include <radar_driver/RadarTrackArray.h>
 #include <ros/ros.h>
+#include <iostream>
 
 namespace radar{
 
@@ -15,7 +16,7 @@ private:
 public:
     RadarVisualizer(/* args */);
     ~RadarVisualizer();
-    visualization_msgs::MarkerArray Update(std::shared_ptr<radar_driver::RadarTrackArray> trackarray_, std::string frame_id_);
+    visualization_msgs::MarkerArray Update(const radar_driver::RadarTrackArray::ConstPtr trackarray_, std::string frame_id_);
 };
 
 } //namespace radar
